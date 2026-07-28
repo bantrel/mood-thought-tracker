@@ -186,8 +186,15 @@ async function loadABCDEntries() {
     console.error(error);
     return;
   }
+console.log("Session User:", session.user.id);
+console.log("ABCD Entries Returned:", data);
+console.log("Session User:", session.user.id);
+console.log("ABCD Data Returned:", data);
+``
 
-  setAbcdEntries(data ?? []);
+alert(`ABCD rows returned: ${data?.length ?? 0}`);
+
+setAbcdEntries(data ?? []);
 }
   async function saveRecord() {
     if (!supabase || !session?.user) return;
