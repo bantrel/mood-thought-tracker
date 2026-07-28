@@ -74,6 +74,7 @@ function badgeClass(intensity: number) {
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState("");
+const [password, setPassword] = useState("");
   const [authMessage, setAuthMessage] = useState("");
   const [loadingAuth, setLoadingAuth] = useState(false);
   const [selectedDate, setSelectedDate] = useState(todayIso());
@@ -81,7 +82,13 @@ export default function App() {
   const [loadingRecords, setLoadingRecords] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const [activeTab, setActiveTab] = useState<"record" | "report" | "entries">("record");
+  const [activeTab, setActiveTab] = useState<
+  "dashboard" |
+  "mood" |
+  "abcd" |
+  "review" |
+  "history"
+>("dashboard");
   useEffect(() => {
     if (!supabase) return;
 
@@ -102,30 +109,26 @@ export default function App() {
     loadRecords();
   }, [session?.user?.id, selectedDate]);
 
+  async function signIn() {
+  if (!supabase) return;
 
-  async function sendMagicLink() {
-    if (!supabase) {
-      setAuthMessage("Supabase is not configured. Check your .env.local file.");
-      return;
-    }
+  setLoadingAuth(true);
+  setAuthMessage("");
 
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-    setLoadingAuth(true);
-    setAuthMessage("");
+  setLoadingAuth(false);
 
+  if (error) {
+    setAuthMessage(error.message);
+    return;
+  }
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: window.location.origin,
-      },
-    });
-
-
-    setLoadingAuth(false);
-    setAuthMessage(error ? error.message : "Check your email for the sign-in link.");
-  }
-
+  setAuthMessage("Signed in successfully");
+}
   async function signOut() {
     if (!supabase) return;
     await supabase.auth.signOut();
@@ -181,7 +184,7 @@ export default function App() {
 
     setForm(emptyForm);
     await loadRecords();
-    setActiveTab("entries");
+    setActiveTab("history");
   }
 
   async function deleteRecord(id: string) {
@@ -305,10 +308,15 @@ const csv = [header, ...rows]
               placeholder="name@example.com"
               onChange={(event) => setEmail(event.target.value)}
             />
+<label>Password</label>
+<input
+  type="password"
+  value={password}
+  onChange={(event) => setPassword(event.target.value)}
+/>
 
-
-            <button className="primaryButton" onClick={sendMagicLink} disabled={!email || loadingAuth}>
-              {loadingAuth ? "Sending..." : "Send sign-in link"}
+            <button className="primaryButton" onClick={signIn} disabled={!email || loadingAuth}>
+              {loadingAuth ? "Sending..." : "Sign In"}
             </button>
 
 
@@ -335,12 +343,84 @@ const csv = [header, ...rows]
           <label>Select day</label>
           <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
         </section>
-        <nav className="tabs">
-          <button className={activeTab === "record" ? "active" : ""} onClick={() => setActiveTab("record")}>Record</button>
-          <button className={activeTab === "report" ? "active" : ""} onClick={() => setActiveTab("report")}>Daily Report</button>
-          <button className={activeTab === "entries" ? "active" : ""} onClick={() => setActiveTab("entries")}>Entries</button>
-        </nav>
-        {activeTab === "record" && (
+<nav className="tabs">
+  <button
+    className={activeTab === "dashboard" ? "active" : ""}
+    onClick={() => setActiveTab("dashboard")}
+  >
+    Dashboard
+  </button>
+
+  <button
+    className={activeTab === "mood" ? "active" : ""}
+    onClick={() => setActiveTab("mood")}
+  >
+    Quick Check-In
+  </button>
+
+  <button
+    className={activeTab === "abcd" ? "active" : ""}
+    onClick={() => setActiveTab("abcd")}
+  >
+    ABCD Reflection
+  </button>
+
+  <button
+    className={activeTab === "review" ? "active" : ""}
+    onClick={() => setActiveTab("review")}
+  >
+    Review
+  </button>
+
+  <button
+    className={activeTab === "history" ? "active" : ""}
+    onClick={() => setActiveTab("history")}
+  >
+    History
+  </button>
+</nav>
+{activeTab === "dashboard" && (
+  <section className="card">
+    <h2>Dashboard</h2>
+
+    <div className="statsGrid">
+      <div className="statBox">
+        <span>Entries Today</span>
+        <strong>{records.length}</strong>
+      </div>
+
+      <div className="statBox">
+        <span>Average Mood</span>
+        <strong>{averageIntensity.toFixed(1)}</strong>
+      </div>
+
+      <div className="statBox">
+        <span>Top Emotion</span>
+        <strong>{topEmotion}</strong>
+      </div>
+
+      <div className="statBox">
+        <span>Status</span>
+        <strong>Version 2</strong>
+      </div>
+    </div>
+  </section>
+)}  
+{activeTab === "abcd" && (
+  <section className="card">
+    <h2>ABCD Reflection</h2>
+
+    <p>This is where the new REBT/ABCD workflow will live.</p>
+
+    <ul>
+      <li>A - Activating Event (Situation)</li>
+      <li>B - Belief / Thought</li>
+      <li>C - Consequence</li>
+      <li>D - Disputation</li>
+    </ul>
+  </section>
+)} 
+     {activeTab === "mood" && (
           <section className="gridTwo">
             <div className="card">
               <h2>New Thought Record</h2>
@@ -405,7 +485,7 @@ const csv = [header, ...rows]
             />
           </section>
         )}
-        {activeTab === "report" && (
+        {activeTab === "review" && (
           <section className="reportStack">
             <SummaryCard
               loading={loadingRecords}
@@ -462,7 +542,7 @@ const csv = [header, ...rows]
             </div>
           </section>
         )}
-        {activeTab === "entries" && (
+        {activeTab === "history" && (
           <section className="card">
             <div className="cardHeaderRow">
               <h2>Entries for {selectedDate}</h2>
