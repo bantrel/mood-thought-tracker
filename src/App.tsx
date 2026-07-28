@@ -82,6 +82,17 @@ const [password, setPassword] = useState("");
   const [loadingRecords, setLoadingRecords] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
+const [abcdForm, setAbcdForm] = useState({
+  activating_event: "",
+  belief: "",
+  emotion: "Anxiety",
+  emotion_intensity: 5,
+  behavioural_consequence: "",
+  physical_consequence: "",
+  evidence_for: "",
+  evidence_against: "",
+  balanced_perspective: "",
+});
   const [activeTab, setActiveTab] = useState<
   "dashboard" |
   "mood" |
@@ -186,7 +197,38 @@ const [password, setPassword] = useState("");
     await loadRecords();
     setActiveTab("history");
   }
+async function saveABCDEntry() {
+  if (!supabase || !session?.user) return;
 
+  const { error } = await supabase
+    .from("abcd_entries")
+    .insert({
+      user_id: session.user.id,
+      entry_date: selectedDate,
+      ...abcdForm,
+    });
+
+
+if (error) {
+  alert(error.message);
+  return;
+}
+
+
+
+setAbcdForm({
+  activating_event: "",
+  belief: "",
+  emotion: "Anxiety",
+  emotion_intensity: 5,
+  behavioural_consequence: "",
+  physical_consequence: "",
+  evidence_for: "",
+  evidence_against: "",
+  balanced_perspective: "",
+});
+  alert("ABCD Reflection saved");
+}
   async function deleteRecord(id: string) {
     if (!supabase || !session?.user) return;
 
@@ -410,14 +452,123 @@ const csv = [header, ...rows]
   <section className="card">
     <h2>ABCD Reflection</h2>
 
-    <p>This is where the new REBT/ABCD workflow will live.</p>
+<label>A - Activating Event</label>
+<textarea
+  value={abcdForm.activating_event}
+  onChange={(e) =>
+    setAbcdForm({
+      ...abcdForm,
+      activating_event: e.target.value,
+    })
+  }
+/>
 
-    <ul>
-      <li>A - Activating Event (Situation)</li>
-      <li>B - Belief / Thought</li>
-      <li>C - Consequence</li>
-      <li>D - Disputation</li>
-    </ul>
+<label>B - Belief / Thought</label>
+<textarea
+  value={abcdForm.belief}
+  onChange={(e) =>
+    setAbcdForm({
+      ...abcdForm,
+      belief: e.target.value,
+    })
+  }
+/>
+
+<label>C - Emotion</label>
+<select
+  value={abcdForm.emotion}
+  onChange={(e) =>
+    setAbcdForm({
+      ...abcdForm,
+      emotion: e.target.value,
+    })
+  }
+>
+  <option>Anxiety</option>
+  <option>Fear</option>
+  <option>Anger</option>
+  <option>Sadness</option>
+  <option>Guilt</option>
+  <option>Shame</option>
+  <option>Frustration</option>
+  <option>Hope</option>
+  <option>Relief</option>
+</select>
+
+<label>Emotion Intensity ({abcdForm.emotion_intensity}/10)</label>
+<input
+  type="range"
+  min="0"
+  max="10"
+  value={abcdForm.emotion_intensity}
+  onChange={(e) =>
+    setAbcdForm({
+      ...abcdForm,
+      emotion_intensity: Number(e.target.value),
+    })
+  }
+/>
+
+<label>Behavioural Consequence</label>
+<textarea
+  value={abcdForm.behavioural_consequence}
+  onChange={(e) =>
+    setAbcdForm({
+      ...abcdForm,
+      behavioural_consequence: e.target.value,
+    })
+  }
+/>
+
+<label>Physical Consequence</label>
+<textarea
+  value={abcdForm.physical_consequence}
+  onChange={(e) =>
+    setAbcdForm({
+      ...abcdForm,
+      physical_consequence: e.target.value,
+    })
+  }
+/>
+
+<label>D - Evidence For</label>
+<textarea
+  value={abcdForm.evidence_for}
+  onChange={(e) =>
+    setAbcdForm({
+      ...abcdForm,
+      evidence_for: e.target.value,
+    })
+  }
+/>
+
+<label>Evidence Against</label>
+<textarea
+  value={abcdForm.evidence_against}
+  onChange={(e) =>
+    setAbcdForm({
+      ...abcdForm,
+      evidence_against: e.target.value,
+    })
+  }
+/>
+
+<label>Balanced Perspective</label>
+<textarea
+  value={abcdForm.balanced_perspective}
+  onChange={(e) =>
+    setAbcdForm({
+      ...abcdForm,
+      balanced_perspective: e.target.value,
+    })
+  }
+/>
+
+<button className="primaryButton" onClick={saveABCDEntry}>
+  Save ABCD Reflection
+</button>
+
+
   </section>
 )} 
      {activeTab === "mood" && (
