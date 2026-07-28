@@ -82,6 +82,7 @@ const [password, setPassword] = useState("");
   const [loadingRecords, setLoadingRecords] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
+const [abcdEntries, setAbcdEntries] = useState<any[]>([]);
 const [abcdForm, setAbcdForm] = useState({
   activating_event: "",
   belief: "",
@@ -147,6 +148,7 @@ const [abcdForm, setAbcdForm] = useState({
   }
 
   async function loadRecords() {
+  
     if (!supabase || !session?.user) return;
 
 
