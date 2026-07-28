@@ -192,7 +192,7 @@ console.log("Session User:", session.user.id);
 console.log("ABCD Data Returned:", data);
 ``
 
-alert(`ABCD rows returned: ${data?.length ?? 0}`);
+
 
 setAbcdEntries(data ?? []);
 }
@@ -253,7 +253,7 @@ setAbcdForm({
   evidence_against: "",
   balanced_perspective: "",
 });
-  alert("ABCD Reflection saved");
+alert("ABCD Reflection saved");
 }
   async function deleteRecord(id: string) {
     if (!supabase || !session?.user) return;
@@ -451,6 +451,15 @@ const csv = [header, ...rows]
   <section className="card">
     <h2>Dashboard</h2>
 <p>ABCD Reflections Loaded: {abcdEntries.length}</p>
+<div style={{ marginTop: "16px" }}>
+  <h3>Today's Activity</h3>
+
+  <p>Quick Check-Ins: {sortedRecords.length}</p>
+
+  <p>ABCD Reflections: {abcdEntries.length}</p>
+
+  <p>Total Activity: {sortedRecords.length + abcdEntries.length}</p>
+</div>
     <div className="statsGrid">
       <div className="statBox">
         <span>Entries Today</span>
@@ -470,6 +479,22 @@ const csv = [header, ...rows]
       <div className="statBox">
         <span>Status</span>
         <strong>Version 2</strong>
+        <div
+  style={{
+    border: "1px solid #ddd",
+    borderRadius: "8px",
+    padding: "12px",
+    marginTop: "12px",
+  }}
+>
+  <h3>Today's Activity</h3>
+
+  <p>Quick Check-Ins: {sortedRecords.length}</p>
+
+  <p>ABCD Reflections: {abcdEntries.length}</p>
+
+  <p>Total Activity: {sortedRecords.length + abcdEntries.length}</p>
+</div>
       </div>
     </div>
   </section>
@@ -660,7 +685,24 @@ const csv = [header, ...rows]
   topEmotion={topEmotion}
   highest={highestRecord}
 />
+<div
+  style={{
+    border: "1px solid #ddd",
+    borderRadius: "8px",
+    padding: "12px",
+    marginTop: "12px",
+  }}
+>
+  <h3>Today's Activity</h3>
 
+  <p>Quick Check-Ins: {sortedRecords.length}</p>
+
+  <p>ABCD Reflections: {abcdEntries.length}</p>
+
+  <p>
+    Total Activity: {sortedRecords.length + abcdEntries.length}
+  </p>
+</div>
 <p>Mood Entries: {sortedRecords.length}</p>
 <p>ABCD Reflections: {abcdEntries.length}</p>
           </section>
