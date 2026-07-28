@@ -116,10 +116,12 @@ const [abcdForm, setAbcdForm] = useState({
     };
   }, []);
 
-  useEffect(() => {
-    if (!session?.user || !supabase) return;
-    loadRecords();
-  }, [session?.user?.id, selectedDate]);
+useEffect(() => {
+  if (!session?.user || !supabase) return;
+
+  loadRecords();
+  loadABCDEntries();
+}, [session?.user?.id, selectedDate]);
 
   async function signIn() {
   if (!supabase) return;
@@ -171,7 +173,22 @@ const [abcdForm, setAbcdForm] = useState({
 
     setRecords(data || []);
   }
+async function loadABCDEntries() {
+  if (!supabase || !session?.user) return;
 
+  const { data, error } = await supabase
+    .from("abcd_entries")
+    .select("*")
+    .eq("user_id", session.user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  setAbcdEntries(data ?? []);
+}
   async function saveRecord() {
     if (!supabase || !session?.user) return;
 
@@ -426,7 +443,7 @@ const csv = [header, ...rows]
 {activeTab === "dashboard" && (
   <section className="card">
     <h2>Dashboard</h2>
-
+<p>ABCD Reflections Loaded: {abcdEntries.length}</p>
     <div className="statsGrid">
       <div className="statBox">
         <span>Entries Today</span>
@@ -629,17 +646,49 @@ const csv = [header, ...rows]
               </button>
             </div>
 
-            <SummaryCard
-              loading={loadingRecords}
-              count={sortedRecords.length}
-              average={averageIntensity}
-              topEmotion={topEmotion}
-              highest={highestRecord}
-            />
+<SummaryCard
+  loading={loadingRecords}
+  count={sortedRecords.length + abcdEntries.length}
+  average={averageIntensity}
+  topEmotion={topEmotion}
+  highest={highestRecord}
+/>
+
+<p>Mood Entries: {sortedRecords.length}</p>
+<p>ABCD Reflections: {abcdEntries.length}</p>
           </section>
         )}
         {activeTab === "review" && (
           <section className="reportStack">
+<h2>ABCD Reflections</h2>
+<p>
+  Total Reflections: {abcdEntries.length}
+</p>
+{abcdEntries.map((entry: any) => (
+  <div
+    key={entry.id}
+    style={{
+      border: "1px solid #ddd",
+      borderRadius: "8px",
+      padding: "12px",
+      marginBottom: "12px",
+    }}
+  >
+    <strong>A - Activating Event</strong>
+    <p>{entry.activating_event}</p>
+
+    <strong>B - Belief</strong>
+    <p>{entry.belief}</p>
+
+    <strong>C - Emotion</strong>
+    <p>
+      {entry.emotion} ({entry.emotion_intensity}/10)
+    </p>
+
+    <strong>D - Balanced Perspective</strong>
+    <p>{entry.balanced_perspective}</p>
+  </div>
+))}
             <SummaryCard
               loading={loadingRecords}
               count={sortedRecords.length}
