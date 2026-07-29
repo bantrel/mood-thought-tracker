@@ -982,15 +982,55 @@ function Styles() {
     <style>{`
       * { box-sizing: border-box; }
 
+      :root {
+        color-scheme: light;
+      }
+
       body {
         margin: 0;
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #f8fafc;
+        background:
+          radial-gradient(circle at top left, rgba(129, 140, 248, 0.18), transparent 24%),
+          radial-gradient(circle at bottom right, rgba(244, 114, 182, 0.16), transparent 26%),
+          linear-gradient(135deg, #f8fbff 0%, #f5f7ff 45%, #fdf2f8 100%);
         color: #0f172a;
+      }
+
+      body::before,
+      body::after {
+        content: "";
+        position: fixed;
+        width: 320px;
+        height: 320px;
+        border-radius: 50%;
+        filter: blur(70px);
+        opacity: 0.35;
+        pointer-events: none;
+        z-index: -1;
+      }
+
+      body::before {
+        top: -80px;
+        left: -80px;
+        background: #818cf8;
+      }
+
+      body::after {
+        bottom: -80px;
+        right: -80px;
+        background: #f472b6;
       }
 
       button, input, textarea, select {
         font: inherit;
+      }
+
+      button {
+        transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
       }
 
       label {
@@ -1002,12 +1042,19 @@ function Styles() {
 
       input, textarea, select {
         width: 100%;
-        border: 1px solid #cbd5e1;
-        border-radius: 14px;
-        padding: 0.8rem 0.9rem;
-        background: white;
+        border: 1px solid #dbe4f0;
+        border-radius: 16px;
+        padding: 0.85rem 0.95rem;
+        background: rgba(255, 255, 255, 0.92);
         color: #0f172a;
         margin-bottom: 1rem;
+        box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+      }
+
+      input:focus, textarea:focus, select:focus {
+        outline: none;
+        border-color: #818cf8;
+        box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.16);
       }
 
       textarea {
@@ -1035,31 +1082,33 @@ function Styles() {
 
       .loginCard {
         width: 100%;
-        max-width: 460px;
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 28px;
+        max-width: 480px;
+        background: rgba(255, 255, 255, 0.88);
+        backdrop-filter: blur(18px);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        border-radius: 30px;
         padding: 2rem;
-        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+        box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
       }
 
       .logo {
-        width: 50px;
-        height: 50px;
+        width: 54px;
+        height: 54px;
         display: grid;
         place-items: center;
         border-radius: 18px;
-        background: #ffe4e6;
+        background: linear-gradient(135deg, #ffe4e6 0%, #fdf2f8 100%);
         color: #e11d48;
-        font-size: 1.8rem;
+        font-size: 1.9rem;
         margin-bottom: 1rem;
+        box-shadow: 0 10px 24px rgba(225, 29, 72, 0.16);
       }
 
       .warning {
-        background: #fef3c7;
+        background: linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%);
         border: 1px solid #fde68a;
         color: #92400e;
-        padding: 0.85rem;
+        padding: 0.9rem;
         border-radius: 14px;
         margin: 1rem 0;
       }
@@ -1070,15 +1119,15 @@ function Styles() {
       }
 
       .statusBox {
-        background: #eef2ff;
+        background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%);
         border: 1px solid #c7d2fe;
         border-radius: 16px;
-        padding: 0.8rem 1rem;
+        padding: 0.85rem 1rem;
         margin-bottom: 1rem;
       }
 
       .appShell {
-        width: min(1180px, 100%);
+        width: min(1240px, 100%);
         margin: 0 auto;
         padding: 1rem;
       }
@@ -1088,29 +1137,37 @@ function Styles() {
         justify-content: space-between;
         gap: 1rem;
         align-items: flex-start;
-        margin: 1rem 0 1.5rem;
+        margin: 1rem 0 1.25rem;
+        padding: 1.25rem 1.4rem;
+        border-radius: 28px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(245,247,255,0.92) 100%);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
       }
 
       .topBar h1 {
         margin-bottom: 0.35rem;
         font-size: clamp(1.8rem, 3vw, 2.6rem);
+        letter-spacing: -0.03em;
       }
 
       .topBar p {
         color: #475569;
         line-height: 1.45;
+        margin-bottom: 0;
       }
 
       .dateRow {
         display: flex;
         align-items: center;
         gap: 0.75rem;
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 20px;
-        padding: 1rem;
+        background: rgba(255, 255, 255, 0.86);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 999px;
+        padding: 0.8rem 1rem;
         margin-bottom: 1rem;
         width: fit-content;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
       }
 
       .dateRow label {
@@ -1122,10 +1179,11 @@ function Styles() {
         display: grid;
         grid-template-columns: repeat(5, 1fr);
         gap: 0.35rem;
-        background: #e2e8f0;
-        border-radius: 18px;
+        background: linear-gradient(135deg, rgba(226,232,240,0.7) 0%, rgba(241,245,249,0.95) 100%);
+        border-radius: 20px;
         padding: 0.35rem;
         margin-bottom: 1rem;
+        box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
       }
 
       .tabs button {
@@ -1139,9 +1197,9 @@ function Styles() {
       }
 
       .tabs button.active {
-        background: white;
-        color: #0f172a;
-        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+        background: linear-gradient(135deg, #ffffff 0%, #eef2ff 100%);
+        color: #312e81;
+        box-shadow: 0 8px 16px rgba(99, 102, 241, 0.16);
       }
 
       .dashboardGrid,
@@ -1158,11 +1216,12 @@ function Styles() {
       }
 
       .card {
-        background: white;
-        border: 1px solid #e2e8f0;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(226, 232, 240, 0.9);
         border-radius: 24px;
         padding: 1.25rem;
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+        box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
+        backdrop-filter: blur(10px);
       }
 
       .card h2 {
@@ -1195,19 +1254,20 @@ function Styles() {
 
       .primaryButton {
         width: 100%;
-        background: #4f46e5;
+        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
         color: white;
         margin-top: 1rem;
+        box-shadow: 0 12px 24px rgba(79, 70, 229, 0.2);
       }
 
       .secondaryButton {
-        background: #f1f5f9;
+        background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
         color: #0f172a;
-        border: 1px solid #cbd5e1;
+        border: 1px solid #dbe4f0;
       }
 
       .dangerButton {
-        background: #fff1f2;
+        background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
         color: #be123c;
         border: 1px solid #fecdd3;
         margin-top: 1rem;
@@ -1216,6 +1276,7 @@ function Styles() {
       button:disabled {
         opacity: 0.55;
         cursor: not-allowed;
+        transform: none;
       }
 
       .statsGrid {
@@ -1228,7 +1289,7 @@ function Styles() {
         border: 1px solid #e2e8f0;
         border-radius: 18px;
         padding: 1rem;
-        background: #f8fafc;
+        background: linear-gradient(135deg, #f8fafc 0%, #f5f3ff 100%);
       }
 
       .statBox span {
@@ -1241,12 +1302,13 @@ function Styles() {
       }
 
       .statBox strong {
-        font-size: 1.4rem;
+        font-size: 1.25rem;
+        color: #111827;
       }
 
       .highlightBox {
         border: 1px solid #fecdd3;
-        background: #fff1f2;
+        background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
         color: #881337;
         border-radius: 18px;
         padding: 1rem;
@@ -1265,7 +1327,7 @@ function Styles() {
         border: 1px solid #e2e8f0;
         border-radius: 20px;
         padding: 1rem;
-        background: #ffffff;
+        background: linear-gradient(135deg, #ffffff 0%, #fafafe 100%);
       }
 
       .activityRow {
