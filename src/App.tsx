@@ -343,11 +343,11 @@ export default function App() {
   useEffect(() => {
     if (
       reframeSourceId !== "latest" &&
-      !abcdEntries.some((entry) => entry.id === reframeSourceId)
+      !historyAbcdEntries.some((entry) => entry.id === reframeSourceId)
     ) {
       setReframeSourceId("latest");
     }
-  }, [abcdEntries, reframeSourceId]);
+  }, [historyAbcdEntries, reframeSourceId]);
 
   async function signIn() {
     if (!supabase) return;
@@ -973,6 +973,11 @@ export default function App() {
     return [...matching].sort((a, b) => b.created_at.localeCompare(a.created_at));
   }, [historyAbcdEntries, historyDateFilter]);
 
+  const reframeSourceEntries = useMemo(
+    () => historyAbcdEntries.slice(0, 20),
+    [historyAbcdEntries]
+  );
+
   const weeklyTrend = useMemo(() => {
     const grouped = new Map<string, number[]>();
 
@@ -1558,8 +1563,9 @@ export default function App() {
 
     const selectedReframeEntry =
       reframeSourceId === "latest"
-        ? abcdEntries[0] || null
-        : abcdEntries.find((entry) => entry.id === reframeSourceId) || null;
+        ? reframeSourceEntries[0] || null
+        : reframeSourceEntries.find((entry) => entry.id === reframeSourceId) ||
+          null;
 
     const reframeDraft = selectedReframeEntry
       ? buildBalancedReframe({
@@ -1571,7 +1577,9 @@ export default function App() {
       : fallbackReframeDraft;
 
     const reframeSourceLabel = selectedReframeEntry
-      ? `ABCD reflection at ${formatTimeOnly(selectedReframeEntry.created_at)}`
+      ? `ABCD reflection on ${selectedReframeEntry.entry_date} at ${formatTimeOnly(
+          selectedReframeEntry.created_at
+        )}`
       : "Latest available entry context";
 
     const nextStep =
@@ -1588,9 +1596,9 @@ export default function App() {
       nextStep,
     };
   }, [
-    abcdEntries,
     counsellorAdvice,
     counsellorDepth,
+    reframeSourceEntries,
     reframeSourceId,
   ]);
 
@@ -2218,9 +2226,13 @@ export default function App() {
                     onChange={(event) => setReframeSourceId(event.target.value)}
                   >
                     <option value="latest">Latest ABCD reflection</option>
-                    {abcdEntries.map((entry) => (
+                    {reframeSourceEntries.map((entry) => (
                       <option key={entry.id} value={entry.id}>
-                        {formatTimeOnly(entry.created_at)} - {(entry.belief || entry.activating_event || "ABCD entry").slice(0, 42)}
+                        {entry.entry_date} {formatTimeOnly(entry.created_at)} - {(
+                          entry.belief ||
+                          entry.activating_event ||
+                          "ABCD entry"
+                        ).slice(0, 42)}
                       </option>
                     ))}
                   </select>
