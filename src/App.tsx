@@ -92,6 +92,12 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function shiftIsoDate(isoDate: string, days: number) {
+  const date = new Date(`${isoDate}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 function nowTime() {
   return new Date().toLocaleTimeString([], {
     hour: "2-digit",
@@ -214,6 +220,7 @@ export default function App() {
   const [password, setPassword] = useState("");
   const [authMessage, setAuthMessage] = useState("");
   const [loadingAuth, setLoadingAuth] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState(todayIso());
   const [historyDateFilter, setHistoryDateFilter] = useState("");
@@ -244,6 +251,11 @@ export default function App() {
 
   const [form, setForm] = useState(emptyMoodForm);
   const [abcdForm, setAbcdForm] = useState(emptyABCDForm);
+  const [editingQuickId, setEditingQuickId] = useState<string | null>(null);
+  const [editingAbcdId, setEditingAbcdId] = useState<string | null>(null);
+  const [editMoodForm, setEditMoodForm] = useState(emptyMoodForm);
+  const [editAbcdForm, setEditAbcdForm] = useState(emptyABCDForm);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const [statusMessage, setStatusMessage] = useState("");
 
@@ -354,6 +366,31 @@ export default function App() {
     }
 
     setAuthMessage("Signed in successfully.");
+  }
+
+  async function sendPasswordReset() {
+    if (!supabase) return;
+
+    if (!email.trim()) {
+      setAuthMessage("Enter your email first, then click reset password.");
+      return;
+    }
+
+    setSendingReset(true);
+    setAuthMessage("");
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: window.location.origin,
+    });
+
+    setSendingReset(false);
+
+    if (error) {
+      setAuthMessage(error.message);
+      return;
+    }
+
+    setAuthMessage("Password reset email sent. Check your inbox.");
   }
 
   async function signOut() {
@@ -547,6 +584,101 @@ export default function App() {
     setUndoExpiresAt(Date.now() + 8000);
     setStatusMessage("ABCD reflection deleted.");
 
+    await Promise.all([loadABCDEntries(), loadHistoryData()]);
+  }
+
+  function beginQuickEdit(record: ThoughtRecord) {
+    setEditingAbcdId(null);
+    setEditingQuickId(record.id);
+    setEditMoodForm({
+      activity_behaviour: record.activity_behaviour || "",
+      mood_emotion: record.mood_emotion,
+      mood_intensity: record.mood_intensity,
+      automatic_thoughts: record.automatic_thoughts || "",
+      physical_reaction: record.physical_reaction || "",
+    });
+  }
+
+  function beginAbcdEdit(entry: ABCDEntry) {
+    setEditingQuickId(null);
+    setEditingAbcdId(entry.id);
+    setEditAbcdForm({
+      activating_event: entry.activating_event || "",
+      belief: entry.belief || "",
+      emotion: entry.emotion || "",
+      emotion_intensity: entry.emotion_intensity,
+      behavioural_consequence: entry.behavioural_consequence || "",
+      physical_consequence: entry.physical_consequence || "",
+      evidence_for: entry.evidence_for || "",
+      evidence_against: entry.evidence_against || "",
+      balanced_perspective: entry.balanced_perspective || "",
+    });
+  }
+
+  function cancelEntryEdit() {
+    setEditingQuickId(null);
+    setEditingAbcdId(null);
+  }
+
+  async function saveQuickEdit(recordId: string) {
+    if (!supabase || !session?.user) return;
+
+    setSavingEdit(true);
+
+    const { error } = await supabase
+      .from("thought_records")
+      .update({
+        activity_behaviour: editMoodForm.activity_behaviour,
+        mood_emotion: editMoodForm.mood_emotion,
+        mood_intensity: editMoodForm.mood_intensity,
+        automatic_thoughts: editMoodForm.automatic_thoughts,
+        physical_reaction: editMoodForm.physical_reaction,
+      })
+      .eq("id", recordId)
+      .eq("user_id", session.user.id);
+
+    setSavingEdit(false);
+
+    if (error) {
+      setStatusMessage(error.message);
+      return;
+    }
+
+    setStatusMessage("Quick Check-In updated.");
+    setEditingQuickId(null);
+    await Promise.all([loadMoodRecords(), loadHistoryData()]);
+  }
+
+  async function saveAbcdEdit(entryId: string) {
+    if (!supabase || !session?.user) return;
+
+    setSavingEdit(true);
+
+    const { error } = await supabase
+      .from("abcd_entries")
+      .update({
+        activating_event: editAbcdForm.activating_event,
+        belief: editAbcdForm.belief,
+        emotion: editAbcdForm.emotion,
+        emotion_intensity: editAbcdForm.emotion_intensity,
+        behavioural_consequence: editAbcdForm.behavioural_consequence,
+        physical_consequence: editAbcdForm.physical_consequence,
+        evidence_for: editAbcdForm.evidence_for,
+        evidence_against: editAbcdForm.evidence_against,
+        balanced_perspective: editAbcdForm.balanced_perspective,
+      })
+      .eq("id", entryId)
+      .eq("user_id", session.user.id);
+
+    setSavingEdit(false);
+
+    if (error) {
+      setStatusMessage(error.message);
+      return;
+    }
+
+    setStatusMessage("ABCD reflection updated.");
+    setEditingAbcdId(null);
     await Promise.all([loadABCDEntries(), loadHistoryData()]);
   }
 
@@ -1459,6 +1591,14 @@ export default function App() {
               {loadingAuth ? "Signing in..." : "Sign In"}
             </button>
 
+            <button
+              className="secondaryButton"
+              onClick={sendPasswordReset}
+              disabled={!email || loadingAuth || sendingReset}
+            >
+              {sendingReset ? "Sending reset email..." : "Reset password"}
+            </button>
+
             {authMessage && <p className="message">{authMessage}</p>}
           </section>
         </main>
@@ -1492,11 +1632,41 @@ export default function App() {
 
         <section className="dateRow">
           <label>Select day</label>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(event) => setSelectedDate(event.target.value)}
-          />
+          <div className="dateControls">
+            <button
+              type="button"
+              className="dateNavButton"
+              onClick={() =>
+                setSelectedDate((current) => shiftIsoDate(current, -1))
+              }
+            >
+              Previous day
+            </button>
+
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(event) => setSelectedDate(event.target.value)}
+            />
+
+            <button
+              type="button"
+              className="dateNavButton"
+              onClick={() => setSelectedDate(todayIso())}
+            >
+              Today
+            </button>
+
+            <button
+              type="button"
+              className="dateNavButton"
+              onClick={() =>
+                setSelectedDate((current) => shiftIsoDate(current, 1))
+              }
+            >
+              Next day
+            </button>
+          </div>
         </section>
 
         {statusMessage && <div className="statusBox">{statusMessage}</div>}
@@ -2143,6 +2313,12 @@ export default function App() {
                                   <h4>Entry details</h4>
                                   <div className="reflectionHeaderActions">
                                     <button
+                                      className="secondaryButton reflectionDeleteButton"
+                                      onClick={() => beginQuickEdit(record)}
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
                                       className="dangerButton reflectionDeleteButton"
                                       onClick={() => deleteMoodRecord(record)}
                                     >
@@ -2151,22 +2327,102 @@ export default function App() {
                                   </div>
                                 </div>
 
-                                <div className="entryGrid">
-                                  <div>
-                                    <h4>Activity / Behaviour</h4>
-                                    <p>{record.activity_behaviour || "-"}</p>
-                                  </div>
+                                {editingQuickId === record.id ? (
+                                  <div className="entryEditForm">
+                                    <label>Mood Emotion</label>
+                                    <input
+                                      type="text"
+                                      value={editMoodForm.mood_emotion}
+                                      onChange={(event) =>
+                                        setEditMoodForm({
+                                          ...editMoodForm,
+                                          mood_emotion: event.target.value,
+                                        })
+                                      }
+                                    />
 
-                                  <div>
-                                    <h4>Automatic Thoughts</h4>
-                                    <p>{record.automatic_thoughts || "-"}</p>
-                                  </div>
+                                    <label>Mood Intensity: {editMoodForm.mood_intensity}/10</label>
+                                    <input
+                                      type="range"
+                                      min="0"
+                                      max="10"
+                                      value={editMoodForm.mood_intensity}
+                                      onChange={(event) =>
+                                        setEditMoodForm({
+                                          ...editMoodForm,
+                                          mood_intensity: Number(event.target.value),
+                                        })
+                                      }
+                                    />
 
-                                  <div>
-                                    <h4>Physical Reaction</h4>
-                                    <p>{record.physical_reaction || "-"}</p>
+                                    <label>Activity / Behaviour</label>
+                                    <textarea
+                                      value={editMoodForm.activity_behaviour}
+                                      onChange={(event) =>
+                                        setEditMoodForm({
+                                          ...editMoodForm,
+                                          activity_behaviour: event.target.value,
+                                        })
+                                      }
+                                    />
+
+                                    <label>Automatic Thoughts</label>
+                                    <textarea
+                                      value={editMoodForm.automatic_thoughts}
+                                      onChange={(event) =>
+                                        setEditMoodForm({
+                                          ...editMoodForm,
+                                          automatic_thoughts: event.target.value,
+                                        })
+                                      }
+                                    />
+
+                                    <label>Physical Reaction</label>
+                                    <textarea
+                                      value={editMoodForm.physical_reaction}
+                                      onChange={(event) =>
+                                        setEditMoodForm({
+                                          ...editMoodForm,
+                                          physical_reaction: event.target.value,
+                                        })
+                                      }
+                                    />
+
+                                    <div className="inlineActions">
+                                      <button
+                                        className="secondaryButton"
+                                        onClick={() => saveQuickEdit(record.id)}
+                                        disabled={!editMoodForm.mood_emotion || savingEdit}
+                                      >
+                                        {savingEdit ? "Saving..." : "Save changes"}
+                                      </button>
+                                      <button
+                                        className="secondaryButton"
+                                        onClick={cancelEntryEdit}
+                                        disabled={savingEdit}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
                                   </div>
-                                </div>
+                                ) : (
+                                  <div className="entryGrid">
+                                    <div>
+                                      <h4>Activity / Behaviour</h4>
+                                      <p>{record.activity_behaviour || "-"}</p>
+                                    </div>
+
+                                    <div>
+                                      <h4>Automatic Thoughts</h4>
+                                      <p>{record.automatic_thoughts || "-"}</p>
+                                    </div>
+
+                                    <div>
+                                      <h4>Physical Reaction</h4>
+                                      <p>{record.physical_reaction || "-"}</p>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </article>
@@ -2224,6 +2480,12 @@ export default function App() {
                                   <h4>Reflection details</h4>
                                   <div className="reflectionHeaderActions">
                                     <button
+                                      className="secondaryButton reflectionDeleteButton"
+                                      onClick={() => beginAbcdEdit(entry)}
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
                                       className="dangerButton reflectionDeleteButton"
                                       onClick={() => deleteABCDEntry(entry)}
                                     >
@@ -2232,33 +2494,161 @@ export default function App() {
                                   </div>
                                 </div>
 
-                                <div className="reflectionSections">
-                                  <section className="reflectionBlock reflectionA">
-                                    <h4>A - Activating Event</h4>
-                                    <p>{entry.activating_event}</p>
-                                  </section>
+                                {editingAbcdId === entry.id ? (
+                                  <div className="entryEditForm">
+                                    <label>A - Activating Event</label>
+                                    <textarea
+                                      value={editAbcdForm.activating_event}
+                                      onChange={(event) =>
+                                        setEditAbcdForm({
+                                          ...editAbcdForm,
+                                          activating_event: event.target.value,
+                                        })
+                                      }
+                                    />
 
-                                  <section className="reflectionBlock reflectionB">
-                                    <h4>B - Belief</h4>
-                                    <p>{entry.belief}</p>
-                                  </section>
+                                    <label>B - Belief</label>
+                                    <textarea
+                                      value={editAbcdForm.belief}
+                                      onChange={(event) =>
+                                        setEditAbcdForm({
+                                          ...editAbcdForm,
+                                          belief: event.target.value,
+                                        })
+                                      }
+                                    />
 
-                                  <section className="reflectionBlock reflectionC">
-                                    <h4>C - Consequences</h4>
-                                    <p>
-                                      Emotion: {entry.emotion} ({entry.emotion_intensity}/10)
-                                    </p>
-                                    <p>Behaviour: {entry.behavioural_consequence || "-"}</p>
-                                    <p>Physical: {entry.physical_consequence || "-"}</p>
-                                  </section>
+                                    <label>Emotion</label>
+                                    <input
+                                      type="text"
+                                      value={editAbcdForm.emotion}
+                                      onChange={(event) =>
+                                        setEditAbcdForm({
+                                          ...editAbcdForm,
+                                          emotion: event.target.value,
+                                        })
+                                      }
+                                    />
 
-                                  <section className="reflectionBlock reflectionD">
-                                    <h4>D - Disputation</h4>
-                                    <p>Evidence for: {entry.evidence_for || "-"}</p>
-                                    <p>Evidence against: {entry.evidence_against || "-"}</p>
-                                    <p>Balanced view: {entry.balanced_perspective || "-"}</p>
-                                  </section>
-                                </div>
+                                    <label>Emotion Intensity: {editAbcdForm.emotion_intensity}/10</label>
+                                    <input
+                                      type="range"
+                                      min="0"
+                                      max="10"
+                                      value={editAbcdForm.emotion_intensity}
+                                      onChange={(event) =>
+                                        setEditAbcdForm({
+                                          ...editAbcdForm,
+                                          emotion_intensity: Number(event.target.value),
+                                        })
+                                      }
+                                    />
+
+                                    <label>Behavioural Consequence</label>
+                                    <textarea
+                                      value={editAbcdForm.behavioural_consequence}
+                                      onChange={(event) =>
+                                        setEditAbcdForm({
+                                          ...editAbcdForm,
+                                          behavioural_consequence: event.target.value,
+                                        })
+                                      }
+                                    />
+
+                                    <label>Physical Consequence</label>
+                                    <textarea
+                                      value={editAbcdForm.physical_consequence}
+                                      onChange={(event) =>
+                                        setEditAbcdForm({
+                                          ...editAbcdForm,
+                                          physical_consequence: event.target.value,
+                                        })
+                                      }
+                                    />
+
+                                    <label>Evidence For</label>
+                                    <textarea
+                                      value={editAbcdForm.evidence_for}
+                                      onChange={(event) =>
+                                        setEditAbcdForm({
+                                          ...editAbcdForm,
+                                          evidence_for: event.target.value,
+                                        })
+                                      }
+                                    />
+
+                                    <label>Evidence Against</label>
+                                    <textarea
+                                      value={editAbcdForm.evidence_against}
+                                      onChange={(event) =>
+                                        setEditAbcdForm({
+                                          ...editAbcdForm,
+                                          evidence_against: event.target.value,
+                                        })
+                                      }
+                                    />
+
+                                    <label>Balanced Perspective</label>
+                                    <textarea
+                                      value={editAbcdForm.balanced_perspective}
+                                      onChange={(event) =>
+                                        setEditAbcdForm({
+                                          ...editAbcdForm,
+                                          balanced_perspective: event.target.value,
+                                        })
+                                      }
+                                    />
+
+                                    <div className="inlineActions">
+                                      <button
+                                        className="secondaryButton"
+                                        onClick={() => saveAbcdEdit(entry.id)}
+                                        disabled={
+                                          !editAbcdForm.activating_event ||
+                                          !editAbcdForm.belief ||
+                                          savingEdit
+                                        }
+                                      >
+                                        {savingEdit ? "Saving..." : "Save changes"}
+                                      </button>
+                                      <button
+                                        className="secondaryButton"
+                                        onClick={cancelEntryEdit}
+                                        disabled={savingEdit}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="reflectionSections">
+                                    <section className="reflectionBlock reflectionA">
+                                      <h4>A - Activating Event</h4>
+                                      <p>{entry.activating_event}</p>
+                                    </section>
+
+                                    <section className="reflectionBlock reflectionB">
+                                      <h4>B - Belief</h4>
+                                      <p>{entry.belief}</p>
+                                    </section>
+
+                                    <section className="reflectionBlock reflectionC">
+                                      <h4>C - Consequences</h4>
+                                      <p>
+                                        Emotion: {entry.emotion} ({entry.emotion_intensity}/10)
+                                      </p>
+                                      <p>Behaviour: {entry.behavioural_consequence || "-"}</p>
+                                      <p>Physical: {entry.physical_consequence || "-"}</p>
+                                    </section>
+
+                                    <section className="reflectionBlock reflectionD">
+                                      <h4>D - Disputation</h4>
+                                      <p>Evidence for: {entry.evidence_for || "-"}</p>
+                                      <p>Evidence against: {entry.evidence_against || "-"}</p>
+                                      <p>Balanced view: {entry.balanced_perspective || "-"}</p>
+                                    </section>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </article>
@@ -2554,6 +2944,11 @@ function Styles() {
         line-height: 1.8;
       }
 
+      .loginCard .secondaryButton {
+        width: 100%;
+        margin-top: 0;
+      }
+
       .logo {
         width: 54px;
         height: 54px;
@@ -2687,6 +3082,23 @@ function Styles() {
         padding: 0.2rem;
         background-color: #eef2ff;
         cursor: pointer;
+      }
+
+      .dateControls {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+      }
+
+      .dateNavButton {
+        border: 1px solid #dbe4f0;
+        border-radius: 999px;
+        padding: 0.5rem 0.75rem;
+        background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+        color: #0f172a;
+        font-weight: 700;
+        font-size: 0.82rem;
+        white-space: nowrap;
       }
 
       .tabs {
@@ -3286,6 +3698,24 @@ function Styles() {
         border-top: 1px solid #e2e8f0;
       }
 
+      .entryEditForm {
+        display: grid;
+        gap: 0.5rem;
+      }
+
+      .entryEditForm textarea,
+      .entryEditForm input,
+      .entryEditForm select {
+        margin-bottom: 0.25rem;
+      }
+
+      .inlineActions {
+        display: flex;
+        gap: 0.55rem;
+        margin-top: 0.35rem;
+        flex-wrap: wrap;
+      }
+
       .historyDetailHeader {
         margin-bottom: 0.85rem;
       }
@@ -3510,6 +3940,11 @@ function Styles() {
           margin-right: auto;
           flex-direction: column;
           align-items: center;
+        }
+
+        .dateControls {
+          flex-wrap: wrap;
+          justify-content: center;
         }
 
         .dateRow input {
