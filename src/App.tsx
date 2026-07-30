@@ -238,6 +238,10 @@ export default function App() {
   const [loadingAuth, setLoadingAuth] = useState(false);
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
+  const [passwordRecoveryMode, setPasswordRecoveryMode] = useState(false);
+  const [recoveryPassword, setRecoveryPassword] = useState("");
+  const [recoveryConfirmPassword, setRecoveryConfirmPassword] = useState("");
+  const [updatingRecoveryPassword, setUpdatingRecoveryPassword] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState(todayIso());
   const [historyDateFilter, setHistoryDateFilter] = useState("");
@@ -310,6 +314,21 @@ export default function App() {
 
     const joiner = /[.!?]$/.test(trimmedCurrent) ? " " : ". ";
     return `${trimmedCurrent}${joiner}${trimmedTranscript}`;
+  }
+
+  function recoveryTypeInUrl() {
+    if (typeof window === "undefined") return false;
+
+    const hash = window.location.hash.startsWith("#")
+      ? window.location.hash.slice(1)
+      : window.location.hash;
+    const hashParams = new URLSearchParams(hash);
+    const searchParams = new URLSearchParams(window.location.search);
+
+    return (
+      hashParams.get("type") === "recovery" ||
+      searchParams.get("type") === "recovery"
+    );
   }
 
   function stopVoiceRecognition() {
@@ -414,12 +433,22 @@ export default function App() {
   useEffect(() => {
     if (!supabase) return;
 
+    if (recoveryTypeInUrl()) {
+      setPasswordRecoveryMode(true);
+      setAuthMessage("Set a new password to finish resetting your account.");
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
+      (event, newSession) => {
+        if (event === "PASSWORD_RECOVERY") {
+          setPasswordRecoveryMode(true);
+          setAuthMessage("Set a new password to finish resetting your account.");
+        }
+
         setSession(newSession);
       }
     );
@@ -599,6 +628,50 @@ export default function App() {
     }
 
     setAuthMessage("Password reset email sent. Check your inbox.");
+  }
+
+  async function completePasswordRecovery() {
+    if (!supabase) return;
+
+    if (!recoveryPassword.trim() || !recoveryConfirmPassword.trim()) {
+      setAuthMessage("Enter and confirm your new password.");
+      return;
+    }
+
+    if (recoveryPassword.length < 6) {
+      setAuthMessage("Password should be at least 6 characters.");
+      return;
+    }
+
+    if (recoveryPassword !== recoveryConfirmPassword) {
+      setAuthMessage("Password and confirm password must match.");
+      return;
+    }
+
+    setUpdatingRecoveryPassword(true);
+    setAuthMessage("");
+
+    const { error } = await supabase.auth.updateUser({
+      password: recoveryPassword,
+    });
+
+    setUpdatingRecoveryPassword(false);
+
+    if (error) {
+      setAuthMessage(error.message);
+      return;
+    }
+
+    await supabase.auth.signOut();
+    setSession(null);
+    setPasswordRecoveryMode(false);
+    setRecoveryPassword("");
+    setRecoveryConfirmPassword("");
+    setAuthMessage("Password updated. Sign in with your new password.");
+
+    if (typeof window !== "undefined") {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }
 
   async function signOut() {
@@ -1772,6 +1845,68 @@ export default function App() {
     reframeSourceEntries,
     reframeSourceId,
   ]);
+
+  if (passwordRecoveryMode) {
+    return (
+      <>
+        <Styles />
+        <main className="loginPage">
+          <section className="loginCard">
+            <div className="logo">♥</div>
+            <h1 className="appTitle">Set New Password</h1>
+            <p>Choose a new password to finish resetting your account.</p>
+
+            <label>New password</label>
+            <input
+              type="password"
+              value={recoveryPassword}
+              onChange={(event) => setRecoveryPassword(event.target.value)}
+            />
+
+            <label>Confirm new password</label>
+            <input
+              type="password"
+              value={recoveryConfirmPassword}
+              onChange={(event) => setRecoveryConfirmPassword(event.target.value)}
+            />
+
+            <button
+              className="primaryButton"
+              onClick={completePasswordRecovery}
+              disabled={
+                updatingRecoveryPassword ||
+                !recoveryPassword ||
+                !recoveryConfirmPassword
+              }
+            >
+              {updatingRecoveryPassword ? "Updating password..." : "Update password"}
+            </button>
+
+            <button
+              className="secondaryButton"
+              onClick={async () => {
+                if (supabase) {
+                  await supabase.auth.signOut();
+                }
+                setSession(null);
+                setPasswordRecoveryMode(false);
+                setRecoveryPassword("");
+                setRecoveryConfirmPassword("");
+                if (typeof window !== "undefined") {
+                  window.history.replaceState({}, document.title, window.location.pathname);
+                }
+              }}
+              disabled={updatingRecoveryPassword}
+            >
+              Back to sign in
+            </button>
+
+            {authMessage && <p className="message">{authMessage}</p>}
+          </section>
+        </main>
+      </>
+    );
+  }
 
   if (!session) {
     return (
