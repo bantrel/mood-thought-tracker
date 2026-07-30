@@ -1014,6 +1014,15 @@ export default function App() {
     return [...matching].sort((a, b) => b.created_at.localeCompare(a.created_at));
   }, [historyAbcdEntries, historyDateFilter]);
 
+  const availableHistoryDates = useMemo(() => {
+    const dateSet = new Set<string>();
+
+    historyRecords.forEach((record) => dateSet.add(record.date));
+    historyAbcdEntries.forEach((entry) => dateSet.add(entry.entry_date));
+
+    return Array.from(dateSet).sort((a, b) => b.localeCompare(a));
+  }, [historyRecords, historyAbcdEntries]);
+
   const reframeSourceEntries = useMemo(
     () => historyAbcdEntries.slice(0, 20),
     [historyAbcdEntries]
@@ -2312,20 +2321,22 @@ export default function App() {
                 </span>
               </h2>
               <div className="historyControls">
-                <input
-                  type="date"
-                  aria-label="Choose history date"
-                  value={historyDateFilter}
-                  onChange={(event) => setHistoryDateFilter(event.target.value)}
-                />
-
-                <button
-                  className="secondaryButton"
-                  onClick={() => setHistoryDateFilter("")}
-                  disabled={!historyDateFilter}
-                >
-                  All dates
-                </button>
+                <div className="historyDateField">
+                  <span className="historyDateFieldLabel">History date</span>
+                  <select
+                    aria-label="Choose history date filter"
+                    value={historyDateFilter}
+                    onChange={(event) => setHistoryDateFilter(event.target.value)}
+                  >
+                    <option value="">All dates</option>
+                    {availableHistoryDates.map((date) => (
+                      <option key={date} value={date}>
+                        {date}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="historyDateHint">Filter entries by day</span>
+                </div>
 
                 <select
                   aria-label="Choose history view"
@@ -3571,6 +3582,23 @@ function Styles() {
         align-items: center;
         flex-wrap: nowrap;
         gap: 0.5rem;
+      }
+
+      .historyDateField {
+        display: grid;
+        gap: 0.2rem;
+      }
+
+      .historyDateFieldLabel {
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #64748b;
+      }
+
+      .historyDateHint {
+        font-size: 0.72rem;
+        color: #64748b;
       }
 
       .exportControls select {
