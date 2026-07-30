@@ -399,12 +399,14 @@ export default function App() {
         type="button"
         className="secondaryButton voiceButton"
         onClick={() => startVoiceInput(fieldKey, applyTranscript)}
+        aria-label={voiceFieldKey === fieldKey ? "Stop voice input" : "Start voice input"}
+        title={voiceFieldKey === fieldKey ? "Listening... tap to stop" : "Voice input"}
         disabled={
           unsupported ||
           (voiceFieldKey !== null && voiceFieldKey !== fieldKey)
         }
       >
-        {voiceFieldKey === fieldKey ? "Listening..." : "Voice input"}
+        {voiceFieldKey === fieldKey ? "●" : "🎤"}
       </button>
     );
   }
@@ -3915,14 +3917,14 @@ function Styles() {
       .adviceItem {
         padding: 1rem;
         border-radius: 18px;
-        background: rgba(255, 255, 255, 0.9);
-        border: 1px solid rgba(226, 232, 240, 0.9);
+        background: var(--surface-2);
+        border: 1px solid var(--surface-border);
         box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
       }
 
       .adviceItem p {
         margin: 0;
-        color: #334155;
+        color: var(--text-main);
         line-height: 1.6;
       }
 
@@ -3970,12 +3972,12 @@ function Styles() {
         font-size: 0.68rem;
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        color: #64748b;
+        color: var(--text-muted);
       }
 
       .historyDateHint {
         font-size: 0.72rem;
-        color: #64748b;
+        color: var(--text-muted);
       }
 
       .exportControls select {
@@ -3996,9 +3998,9 @@ function Styles() {
         min-width: 148px;
         flex: 0 0 auto;
         border-radius: 999px;
-        border: 1px solid #e2e8f0;
-        background: #ffffff;
-        color: #0f172a;
+        border: 1px solid var(--input-border);
+        background: var(--input-bg);
+        color: var(--text-main);
         padding: 0.55rem 0.8rem;
         font-size: 0.9rem;
         font-family: inherit;
@@ -4043,10 +4045,15 @@ function Styles() {
       .voiceButton {
         width: auto;
         margin: 0;
-        padding: 0.45rem 0.7rem;
+        min-width: 2.2rem;
+        min-height: 2.2rem;
+        padding: 0.35rem;
         font-size: 0.78rem;
         font-weight: 700;
         white-space: nowrap;
+        line-height: 1;
+        display: inline-grid;
+        place-items: center;
       }
 
       .checkinGrid {
@@ -4067,13 +4074,14 @@ function Styles() {
       }
 
       .checkinGroup label {
-        color: #334155;
+        color: var(--label-color);
       }
 
       .checkinGroup textarea,
       .checkinGroup select,
       .checkinGroup input {
-        background: rgba(255, 255, 255, 0.94);
+        background: var(--input-bg);
+        color: var(--text-main);
       }
 
       .checkinOne {
@@ -4130,13 +4138,14 @@ function Styles() {
       }
 
       .abcdGroup label {
-        color: #334155;
+        color: var(--label-color);
       }
 
       .abcdGroup textarea,
       .abcdGroup select,
       .abcdGroup input {
-        background: rgba(255, 255, 255, 0.94);
+        background: var(--input-bg);
+        color: var(--text-main);
       }
 
       .abcdA {
@@ -4266,7 +4275,7 @@ function Styles() {
         font-size: 0.95rem;
         letter-spacing: 0.04em;
         text-transform: uppercase;
-        color: #475569;
+        color: var(--text-muted);
       }
 
       .historyItemToggle {
@@ -4293,15 +4302,15 @@ function Styles() {
 
       .historyItemMeta p {
         margin: 0;
-        color: #64748b;
+        color: var(--text-muted);
         line-height: 1.45;
       }
 
       .historyItemHint {
         font-size: 0.75rem;
-        color: #475569;
-        background: #f1f5f9;
-        border: 1px solid #dbe4f0;
+        color: var(--secondary-text);
+        background: linear-gradient(135deg, var(--secondary-bg-1) 0%, var(--secondary-bg-2) 100%);
+        border: 1px solid var(--secondary-border);
         border-radius: 999px;
         padding: 0.28rem 0.55rem;
         white-space: nowrap;
@@ -4338,16 +4347,16 @@ function Styles() {
       .historyDetailHeader h4 {
         margin: 0;
         font-size: 0.9rem;
-        color: #334155;
+        color: var(--label-color);
       }
 
       .activityRow,
       .entryCard,
       .reflectionCard {
-        border: 1px solid #e2e8f0;
+        border: 1px solid var(--surface-border);
         border-radius: 20px;
         padding: 1rem;
-        background: linear-gradient(135deg, #ffffff 0%, #fafafe 100%);
+        background: linear-gradient(135deg, var(--surface-1) 0%, var(--surface-2) 100%);
       }
 
       .activityRow {
@@ -4376,7 +4385,7 @@ function Styles() {
       }
 
       .activityContent span {
-        color: #64748b;
+        color: var(--text-muted);
         font-size: 0.82rem;
         font-weight: 600;
       }
@@ -4384,7 +4393,7 @@ function Styles() {
       .activityRow p,
       .entryGrid p,
       .reflectionCard p {
-        color: #475569;
+        color: var(--text-main);
         line-height: 1.5;
         white-space: pre-wrap;
       }
@@ -4415,7 +4424,7 @@ function Styles() {
       }
 
       .reflectionHeader span {
-        color: #64748b;
+        color: var(--text-muted);
         font-size: 0.8rem;
       }
 
