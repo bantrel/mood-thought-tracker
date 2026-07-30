@@ -2254,7 +2254,7 @@ export default function App() {
                 </div>
               ) : null}
 
-              <div className="card adviceCard">
+              <div className="card adviceCard reframeTopCard">
                 <h3 className="adviceTitle">Reframe Draft</h3>
                 <div className="reframeControls">
                   <select
@@ -4147,6 +4147,14 @@ function Styles() {
 
         .tabs {
           grid-template-columns: 1fr;
+        }
+
+        .adviceGrid {
+          grid-template-columns: 1fr;
+        }
+
+        .reframeTopCard {
+          order: -1;
         }
 
         .activityRow {
