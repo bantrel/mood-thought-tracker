@@ -1,75 +1,89 @@
-# React + TypeScript + Vite
+# Mood & Thought Tracker
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A private React + Supabase journal for capturing quick mood check-ins, writing ABCD reflections, and reviewing patterns across recent days.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Email/password sign in, account creation, and password reset with Supabase Auth
+- Quick Check-In flow for mood, intensity, context, thoughts, and physical reactions
+- ABCD reflection workflow for reframing difficult situations
+- Same-day review screens with edit, delete, refresh, and CSV export support
+- 7-day trend summary showing activity volume and average mood intensity
 
-## React Compiler
+## Tech stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19
+- TypeScript
+- Vite
+- Supabase JS
 
-## Expanding the ESLint configuration
+## Prerequisites
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Node.js 20+
+- A Supabase project with Auth enabled
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Environment variables
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Create a `.env.local` file in `/home/runner/work/mood-thought-tracker/mood-thought-tracker` with:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+VITE_SUPABASE_URL=your-supabase-url
+VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-anon-key
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Data model expectations
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+The app expects these Supabase tables:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### `thought_records`
 
+- `id` (uuid, primary key)
+- `user_id` (uuid, references auth.users.id)
+- `date` (date or yyyy-mm-dd text)
+- `time` (HH:MM text)
+- `activity_behaviour` (text, nullable)
+- `mood_emotion` (text)
+- `mood_intensity` (integer)
+- `automatic_thoughts` (text, nullable)
+- `physical_reaction` (text, nullable)
+- `inserted_at` (timestamp, optional but supported)
+
+### `abcd_entries`
+
+- `id` (uuid, primary key)
+- `user_id` (uuid, references auth.users.id)
+- `entry_date` (date or yyyy-mm-dd text)
+- `created_at` (timestamp)
+- `activating_event` (text)
+- `belief` (text)
+- `emotion` (text)
+- `emotion_intensity` (integer)
+- `behavioural_consequence` (text, nullable)
+- `physical_consequence` (text, nullable)
+- `evidence_for` (text, nullable)
+- `evidence_against` (text, nullable)
+- `balanced_perspective` (text, nullable)
+
+Make sure row-level security policies restrict each table to the authenticated user’s own rows.
+
+## Getting started
+
+```bash
+npm install
+npm run dev
 ```
+
+The app runs locally at the Vite default URL shown in the terminal.
+
+## Available scripts
+
+- `npm run dev` – start the Vite dev server
+- `npm run build` – run TypeScript build checks and create a production bundle
+- `npm run lint` – run ESLint across the project
+- `npm run preview` – preview the production build locally
+
+## Notes
+
+- Dates are stored using local calendar dates to avoid UTC day drift in the UI.
+- Mood entry times are normalized to 24-hour `HH:MM` values for easier sorting.
+- There is currently no automated test suite in this repository.
