@@ -218,8 +218,10 @@ export default function App() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [authMessage, setAuthMessage] = useState("");
   const [loadingAuth, setLoadingAuth] = useState(false);
+  const [creatingAccount, setCreatingAccount] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState(todayIso());
@@ -366,6 +368,50 @@ export default function App() {
     }
 
     setAuthMessage("Signed in successfully.");
+  }
+
+  async function signUp() {
+    if (!supabase) return;
+
+    if (!email.trim() || !password.trim() || !confirmPassword.trim()) {
+      setAuthMessage("Enter email, password, and confirm password.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setAuthMessage("Password and confirm password must match.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setAuthMessage("Password should be at least 6 characters.");
+      return;
+    }
+
+    setCreatingAccount(true);
+    setAuthMessage("");
+
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
+    });
+
+    setCreatingAccount(false);
+
+    if (error) {
+      setAuthMessage(error.message);
+      return;
+    }
+
+    if (data.user && !data.session) {
+      setAuthMessage("Account created. Check your email to verify your account.");
+      return;
+    }
+
+    setAuthMessage("Account created and signed in.");
   }
 
   async function sendPasswordReset() {
@@ -1583,18 +1629,39 @@ export default function App() {
               onChange={(event) => setPassword(event.target.value)}
             />
 
+            <label>Confirm password</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+            />
+
             <button
               className="primaryButton"
               onClick={signIn}
-              disabled={!email || !password || loadingAuth}
+              disabled={!email || !password || loadingAuth || creatingAccount}
             >
               {loadingAuth ? "Signing in..." : "Sign In"}
             </button>
 
             <button
               className="secondaryButton"
+              onClick={signUp}
+              disabled={
+                !email ||
+                !password ||
+                !confirmPassword ||
+                loadingAuth ||
+                creatingAccount
+              }
+            >
+              {creatingAccount ? "Creating account..." : "Create account"}
+            </button>
+
+            <button
+              className="secondaryButton"
               onClick={sendPasswordReset}
-              disabled={!email || loadingAuth || sendingReset}
+              disabled={!email || loadingAuth || creatingAccount || sendingReset}
             >
               {sendingReset ? "Sending reset email..." : "Reset password"}
             </button>
