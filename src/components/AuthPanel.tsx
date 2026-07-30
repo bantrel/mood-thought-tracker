@@ -3,7 +3,7 @@ import type { AuthMode, Notice } from '../types';
 type AuthPanelProps = {
   configured: boolean;
   email: string;
-  password: string;
+  secretValue: string;
   mode: AuthMode;
   loading: boolean;
   notice: Notice | null;
@@ -34,7 +34,7 @@ const contentByMode: Record<AuthMode, { title: string; description: string; acti
 export function AuthPanel({
   configured,
   email,
-  password,
+  secretValue,
   mode,
   loading,
   notice,
@@ -99,7 +99,7 @@ export function AuthPanel({
             <input
               id="password"
               type="password"
-              value={password}
+              value={secretValue}
               placeholder={mode === 'signUp' ? 'Create a password' : 'Enter your password'}
               onChange={(event) => onPasswordChange(event.target.value)}
             />
@@ -110,7 +110,7 @@ export function AuthPanel({
           type="button"
           className="primaryButton"
           onClick={onSubmit}
-          disabled={!configured || loading || !email.trim() || (mode !== 'reset' && !password)}
+          disabled={!configured || loading || !email.trim() || (mode !== 'reset' && !secretValue)}
         >
           {loading ? 'Working...' : content.action}
         </button>

@@ -1,10 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import './App.css';
 import { AuthPanel } from './components/AuthPanel';
 import { DayAtAGlance } from './components/DayAtAGlance';
 import { TrendSummary } from './components/TrendSummary';
-import { buildDateRange, currentLocalTime, formatDateTime, formatShortDate, normalizeSortableTime, shiftIsoDate, todayLocalIso } from './lib/date';
+import {
+  buildDateRange,
+  currentLocalTime,
+  formatDateTime,
+  formatShortDate,
+  normalizeSortableTime,
+  shiftIsoDate,
+  todayLocalIso,
+} from './lib/date';
 import { abcdEntryColumns, supabase, supabaseConfigured, thoughtRecordColumns } from './lib/supabase';
 import type { ABCDEntry, ABCDFormState, AuthMode, MoodFormState, Notice, ThoughtRecord } from './types';
 
@@ -67,7 +75,7 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authMode, setAuthMode] = useState<AuthMode>('signIn');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [passphrase, setPassphrase] = useState('');
   const [authNotice, setAuthNotice] = useState<Notice | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(false);
 
@@ -103,6 +111,17 @@ export default function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
+
+      if (!nextSession) {
+        setRecords([]);
+        setAbcdEntries([]);
+        setTrendMoodRecords([]);
+        setTrendAbcdEntries([]);
+        setEditingMoodId(null);
+        setEditingABCDId(null);
+        setForm(createEmptyMoodForm());
+        setAbcdForm(createEmptyABCDForm());
+      }
     });
 
     return () => {
@@ -110,105 +129,78 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
-    if (session) return;
-
-    setRecords([]);
-    setAbcdEntries([]);
-    setTrendMoodRecords([]);
-    setTrendAbcdEntries([]);
-    setEditingMoodId(null);
-    setEditingABCDId(null);
-    setForm(createEmptyMoodForm());
-    setAbcdForm(createEmptyABCDForm());
-  }, [session]);
-
-  const loadMoodRecords = useCallback(async () => {
-    if (!supabase || !session?.user) return;
+  async function fetchAndStoreData(userId: string, date: string, options?: { cancelled?: () => boolean }) {
+    if (!supabase) return;
+    if (options?.cancelled?.()) return;
 
     setLoadingRecords(true);
-
-    const { data, error } = await supabase
-      .from('thought_records')
-      .select(thoughtRecordColumns)
-      .eq('user_id', session.user.id)
-      .eq('date', selectedDate)
-      .order('time', { ascending: true });
-
-    setLoadingRecords(false);
-
-    if (error) {
-      setStatusNotice({ tone: 'error', text: error.message });
-      return;
-    }
-
-    setRecords((data ?? []) as ThoughtRecord[]);
-  }, [selectedDate, session?.user, session?.user?.id]);
-
-  const loadABCDEntries = useCallback(async () => {
-    if (!supabase || !session?.user) return;
-
-    const { data, error } = await supabase
-      .from('abcd_entries')
-      .select(abcdEntryColumns)
-      .eq('user_id', session.user.id)
-      .eq('entry_date', selectedDate)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      setStatusNotice({ tone: 'error', text: error.message });
-      return;
-    }
-
-    setAbcdEntries((data ?? []) as ABCDEntry[]);
-  }, [selectedDate, session?.user, session?.user?.id]);
-
-  const loadTrendData = useCallback(async () => {
-    if (!supabase || !session?.user) return;
-
     setLoadingInsights(true);
-    const startDate = shiftIsoDate(selectedDate, -6);
 
-    const [moodResult, abcdResult] = await Promise.all([
+    const startDate = shiftIsoDate(date, -6);
+    const [dayMood, dayAbcd, trendMood, trendAbcd] = await Promise.all([
       supabase
         .from('thought_records')
         .select(thoughtRecordColumns)
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
+        .eq('date', date)
+        .order('time', { ascending: true }),
+      supabase
+        .from('abcd_entries')
+        .select(abcdEntryColumns)
+        .eq('user_id', userId)
+        .eq('entry_date', date)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('thought_records')
+        .select(thoughtRecordColumns)
+        .eq('user_id', userId)
         .gte('date', startDate)
-        .lte('date', selectedDate)
+        .lte('date', date)
         .order('date', { ascending: true })
         .order('time', { ascending: true }),
       supabase
         .from('abcd_entries')
         .select(abcdEntryColumns)
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
         .gte('entry_date', startDate)
-        .lte('entry_date', selectedDate)
+        .lte('entry_date', date)
         .order('entry_date', { ascending: true })
         .order('created_at', { ascending: true }),
     ]);
 
+    if (options?.cancelled?.()) return;
+
+    setLoadingRecords(false);
     setLoadingInsights(false);
 
-    if (moodResult.error) {
-      setStatusNotice({ tone: 'error', text: moodResult.error.message });
+    const firstError = dayMood.error ?? dayAbcd.error ?? trendMood.error ?? trendAbcd.error;
+    if (firstError) {
+      setStatusNotice({ tone: 'error', text: firstError.message });
       return;
     }
 
-    if (abcdResult.error) {
-      setStatusNotice({ tone: 'error', text: abcdResult.error.message });
-      return;
-    }
-
-    setTrendMoodRecords((moodResult.data ?? []) as ThoughtRecord[]);
-    setTrendAbcdEntries((abcdResult.data ?? []) as ABCDEntry[]);
-  }, [selectedDate, session?.user, session?.user?.id]);
+    setRecords(((dayMood.data ?? []) as unknown) as ThoughtRecord[]);
+    setAbcdEntries(((dayAbcd.data ?? []) as unknown) as ABCDEntry[]);
+    setTrendMoodRecords(((trendMood.data ?? []) as unknown) as ThoughtRecord[]);
+    setTrendAbcdEntries(((trendAbcd.data ?? []) as unknown) as ABCDEntry[]);
+  }
 
   useEffect(() => {
-    if (!session?.user || !supabase) return;
+    const userId = session?.user?.id;
+    if (!supabase || !userId) return;
 
-    void Promise.all([loadMoodRecords(), loadABCDEntries(), loadTrendData()]);
-  }, [loadABCDEntries, loadMoodRecords, loadTrendData, session?.user]);
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      void fetchAndStoreData(userId, selectedDate, {
+        cancelled: () => cancelled,
+      });
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [selectedDate, session?.user?.id]);
 
   async function submitAuth() {
     if (!supabase) return;
@@ -219,7 +211,7 @@ export default function App() {
     const trimmedEmail = email.trim();
 
     if (authMode === 'signIn') {
-      const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
+      const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password: passphrase });
       setLoadingAuth(false);
       setAuthNotice(
         error
@@ -230,7 +222,7 @@ export default function App() {
     }
 
     if (authMode === 'signUp') {
-      const { data, error } = await supabase.auth.signUp({ email: trimmedEmail, password });
+      const { data, error } = await supabase.auth.signUp({ email: trimmedEmail, password: passphrase });
       setLoadingAuth(false);
 
       if (error) {
@@ -272,13 +264,14 @@ export default function App() {
   }
 
   async function saveMoodRecord() {
-    if (!supabase || !session?.user) return;
+    const userId = session?.user?.id;
+    if (!supabase || !userId) return;
 
     setSavingMood(true);
     setStatusNotice(null);
 
     const payload = {
-      user_id: session.user.id,
+      user_id: userId,
       date: selectedDate,
       time: form.time,
       activity_behaviour: toNullableText(form.activity_behaviour),
@@ -289,7 +282,7 @@ export default function App() {
     };
 
     const result = editingMoodId
-      ? await supabase.from('thought_records').update(payload).eq('id', editingMoodId).eq('user_id', session.user.id)
+      ? await supabase.from('thought_records').update(payload).eq('id', editingMoodId).eq('user_id', userId)
       : await supabase.from('thought_records').insert(payload);
 
     setSavingMood(false);
@@ -305,18 +298,19 @@ export default function App() {
       tone: 'success',
       text: editingMoodId ? 'Quick Check-In updated.' : 'Quick Check-In saved.',
     });
-    await Promise.all([loadMoodRecords(), loadTrendData()]);
+    await fetchAndStoreData(userId, selectedDate);
     setActiveTab('history');
   }
 
   async function saveABCDEntry() {
-    if (!supabase || !session?.user) return;
+    const userId = session?.user?.id;
+    if (!supabase || !userId) return;
 
     setSavingABCD(true);
     setStatusNotice(null);
 
     const payload = {
-      user_id: session.user.id,
+      user_id: userId,
       entry_date: selectedDate,
       activating_event: abcdForm.activating_event.trim(),
       belief: abcdForm.belief.trim(),
@@ -330,7 +324,7 @@ export default function App() {
     };
 
     const result = editingABCDId
-      ? await supabase.from('abcd_entries').update(payload).eq('id', editingABCDId).eq('user_id', session.user.id)
+      ? await supabase.from('abcd_entries').update(payload).eq('id', editingABCDId).eq('user_id', userId)
       : await supabase.from('abcd_entries').insert(payload);
 
     setSavingABCD(false);
@@ -346,17 +340,18 @@ export default function App() {
       tone: 'success',
       text: editingABCDId ? 'ABCD Reflection updated.' : 'ABCD Reflection saved.',
     });
-    await Promise.all([loadABCDEntries(), loadTrendData()]);
+    await fetchAndStoreData(userId, selectedDate);
     setActiveTab('review');
   }
 
   async function deleteMoodRecord(id: string) {
-    if (!supabase || !session?.user) return;
+    const userId = session?.user?.id;
+    if (!supabase || !userId) return;
     if (!window.confirm('Delete this quick check-in?')) return;
 
     setDeletingMoodId(id);
 
-    const { error } = await supabase.from('thought_records').delete().eq('id', id).eq('user_id', session.user.id);
+    const { error } = await supabase.from('thought_records').delete().eq('id', id).eq('user_id', userId);
 
     setDeletingMoodId(null);
 
@@ -371,16 +366,17 @@ export default function App() {
     }
 
     setStatusNotice({ tone: 'success', text: 'Quick Check-In deleted.' });
-    await Promise.all([loadMoodRecords(), loadTrendData()]);
+    await fetchAndStoreData(userId, selectedDate);
   }
 
   async function deleteABCDEntry(id: string) {
-    if (!supabase || !session?.user) return;
+    const userId = session?.user?.id;
+    if (!supabase || !userId) return;
     if (!window.confirm('Delete this ABCD reflection?')) return;
 
     setDeletingABCDId(id);
 
-    const { error } = await supabase.from('abcd_entries').delete().eq('id', id).eq('user_id', session.user.id);
+    const { error } = await supabase.from('abcd_entries').delete().eq('id', id).eq('user_id', userId);
 
     setDeletingABCDId(null);
 
@@ -395,7 +391,7 @@ export default function App() {
     }
 
     setStatusNotice({ tone: 'success', text: 'ABCD Reflection deleted.' });
-    await Promise.all([loadABCDEntries(), loadTrendData()]);
+    await fetchAndStoreData(userId, selectedDate);
   }
 
   function editMoodRecord(record: ThoughtRecord) {
@@ -412,7 +408,7 @@ export default function App() {
     setActiveTab('mood');
   }
 
-  function editABCDEntry(entry: ABCDEntry) {
+  function editABCDRecord(entry: ABCDEntry) {
     setEditingABCDId(entry.id);
     setAbcdForm({
       activating_event: entry.activating_event,
@@ -442,15 +438,17 @@ export default function App() {
   function exportCsv() {
     const header = ['Date', 'Time', 'Activity/Behaviour', 'Mood Emotion', 'Mood Intensity', 'Automatic Thoughts', 'Physical Reaction'];
 
-    const rows = sortedRecords.map((record) => [
-      record.date,
-      record.time,
-      record.activity_behaviour || '',
-      record.mood_emotion,
-      String(record.mood_intensity),
-      record.automatic_thoughts || '',
-      record.physical_reaction || '',
-    ]);
+    const rows = [...records]
+      .sort((a, b) => normalizeSortableTime(a.time).localeCompare(normalizeSortableTime(b.time)))
+      .map((record) => [
+        record.date,
+        record.time,
+        record.activity_behaviour || '',
+        record.mood_emotion,
+        String(record.mood_intensity),
+        record.automatic_thoughts || '',
+        record.physical_reaction || '',
+      ]);
 
     const csv = [header, ...rows]
       .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
@@ -465,81 +463,73 @@ export default function App() {
     URL.revokeObjectURL(url);
   }
 
-  const sortedRecords = useMemo(
-    () => [...records].sort((a, b) => normalizeSortableTime(a.time).localeCompare(normalizeSortableTime(b.time))),
-    [records],
+  const sortedRecords = [...records].sort((a, b) =>
+    normalizeSortableTime(a.time).localeCompare(normalizeSortableTime(b.time)),
   );
 
-  const averageIntensity = useMemo(() => {
-    if (!sortedRecords.length) return 0;
-    const total = sortedRecords.reduce((sum, record) => sum + record.mood_intensity, 0);
-    return total / sortedRecords.length;
-  }, [sortedRecords]);
+  const averageIntensity =
+    sortedRecords.length > 0
+      ? sortedRecords.reduce((sum, record) => sum + record.mood_intensity, 0) / sortedRecords.length
+      : 0;
 
-  const highestRecord = useMemo(() => {
-    if (!sortedRecords.length) return null;
-    return [...sortedRecords].sort((a, b) => b.mood_intensity - a.mood_intensity)[0];
-  }, [sortedRecords]);
+  const highestRecord = sortedRecords.length
+    ? [...sortedRecords].sort((a, b) => b.mood_intensity - a.mood_intensity)[0]
+    : null;
 
-  const emotionCounts = useMemo(() => {
-    const counts = sortedRecords.reduce<Record<string, number>>((accumulator, record) => {
+  const emotionCounts = sortedRecords
+    .reduce<Record<string, number>>((accumulator, record) => {
       accumulator[record.mood_emotion] = (accumulator[record.mood_emotion] || 0) + 1;
       return accumulator;
     }, {});
 
-    return Object.entries(counts)
-      .map(([emotion, count]) => ({ emotion, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [sortedRecords]);
+  const topEmotion =
+    Object.entries(emotionCounts)
+      .sort((a, b) => b[1] - a[1])[0]?.[0] ?? '-';
 
-  const topEmotion = emotionCounts[0]?.emotion || '-';
-
-  const recentActivity = useMemo(() => {
-    const moodItems = sortedRecords.map((record) => ({
+  const recentActivity = [...sortedRecords
+    .map((record) => ({
       id: record.id,
       type: 'Quick Check-In',
       time: record.time,
       title: record.mood_emotion,
       detail: record.automatic_thoughts || record.activity_behaviour || 'No notes added.',
       sortValue: `${record.date} ${normalizeSortableTime(record.time)}`,
-    }));
+    }))
+    .concat(
+      abcdEntries.map((entry) => ({
+        id: entry.id,
+        type: 'ABCD Reflection',
+        time: formatDateTime(entry.created_at),
+        title: entry.emotion,
+        detail: entry.belief || entry.activating_event,
+        sortValue: entry.created_at,
+      })),
+    )]
+    .sort((a, b) => b.sortValue.localeCompare(a.sortValue))
+    .slice(0, 6);
 
-    const abcdItems = abcdEntries.map((entry) => ({
-      id: entry.id,
-      type: 'ABCD Reflection',
-      time: formatDateTime(entry.created_at),
-      title: entry.emotion,
-      detail: entry.belief || entry.activating_event,
-      sortValue: entry.created_at,
-    }));
+  const trendDays = buildDateRange(selectedDate, 7).map((date) => {
+    const moodForDay = trendMoodRecords.filter((record) => record.date === date);
+    const abcdForDay = trendAbcdEntries.filter((entry) => entry.entry_date === date);
+    const emotionTally = moodForDay.reduce<Record<string, number>>((accumulator, record) => {
+      accumulator[record.mood_emotion] = (accumulator[record.mood_emotion] || 0) + 1;
+      return accumulator;
+    }, {});
 
-    return [...moodItems, ...abcdItems].sort((a, b) => b.sortValue.localeCompare(a.sortValue)).slice(0, 6);
-  }, [abcdEntries, sortedRecords]);
+    const dominantEmotion = Object.entries(emotionTally).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    const averageForDay = moodForDay.length
+      ? moodForDay.reduce((sum, record) => sum + record.mood_intensity, 0) / moodForDay.length
+      : null;
 
-  const trendDays = useMemo(() => {
-    return buildDateRange(selectedDate, 7).map((date) => {
-      const moodForDay = trendMoodRecords.filter((record) => record.date === date);
-      const abcdForDay = trendAbcdEntries.filter((entry) => entry.entry_date === date);
-      const emotionTally = moodForDay.reduce<Record<string, number>>((accumulator, record) => {
-        accumulator[record.mood_emotion] = (accumulator[record.mood_emotion] || 0) + 1;
-        return accumulator;
-      }, {});
-
-      const dominantEmotion = Object.entries(emotionTally).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-      const averageForDay = moodForDay.length
-        ? moodForDay.reduce((sum, record) => sum + record.mood_intensity, 0) / moodForDay.length
-        : null;
-
-      return {
-        date,
-        shortLabel: formatShortDate(date),
-        checkIns: moodForDay.length,
-        abcdReflections: abcdForDay.length,
-        averageIntensity: averageForDay,
-        dominantEmotion,
-      };
-    });
-  }, [selectedDate, trendAbcdEntries, trendMoodRecords]);
+    return {
+      date,
+      shortLabel: formatShortDate(date),
+      checkIns: moodForDay.length,
+      abcdReflections: abcdForDay.length,
+      averageIntensity: averageForDay,
+      dominantEmotion,
+    };
+  });
 
   const activeDays = trendDays.filter((day) => day.checkIns + day.abcdReflections > 0).length;
 
@@ -548,12 +538,12 @@ export default function App() {
       <AuthPanel
         configured={supabaseConfigured}
         email={email}
-        password={password}
+        secretValue={passphrase}
         mode={authMode}
         loading={loadingAuth}
         notice={authNotice}
         onEmailChange={setEmail}
-        onPasswordChange={setPassword}
+        onPasswordChange={setPassphrase}
         onModeChange={(mode) => {
           setAuthMode(mode);
           setAuthNotice(null);
@@ -941,7 +931,7 @@ export default function App() {
                       </div>
                     </div>
                     <div className="inlineActions">
-                      <button type="button" className="secondaryButton" onClick={() => editABCDEntry(entry)}>
+                      <button type="button" className="secondaryButton" onClick={() => editABCDRecord(entry)}>
                         Edit
                       </button>
                       <button
@@ -1002,7 +992,14 @@ export default function App() {
               <p className="eyebrow">Entry archive</p>
               <h2>Quick Check-In history for {formatShortDate(selectedDate)}</h2>
             </div>
-            <button type="button" className="secondaryButton" onClick={() => void loadMoodRecords()}>
+            <button
+              type="button"
+              className="secondaryButton"
+              onClick={() => {
+                const userId = session.user.id;
+                void fetchAndStoreData(userId, selectedDate);
+              }}
+            >
               Refresh
             </button>
           </div>
