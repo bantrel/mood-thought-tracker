@@ -219,6 +219,7 @@ export default function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [createAccountMode, setCreateAccountMode] = useState(false);
   const [authMessage, setAuthMessage] = useState("");
   const [loadingAuth, setLoadingAuth] = useState(false);
   const [creatingAccount, setCreatingAccount] = useState(false);
@@ -352,6 +353,8 @@ export default function App() {
   async function signIn() {
     if (!supabase) return;
 
+    setCreateAccountMode(false);
+    setConfirmPassword("");
     setLoadingAuth(true);
     setAuthMessage("");
 
@@ -372,6 +375,12 @@ export default function App() {
 
   async function signUp() {
     if (!supabase) return;
+
+    if (!createAccountMode) {
+      setCreateAccountMode(true);
+      setAuthMessage("Confirm your password to create a new account.");
+      return;
+    }
 
     if (!email.trim() || !password.trim() || !confirmPassword.trim()) {
       setAuthMessage("Enter email, password, and confirm password.");
@@ -1637,12 +1646,16 @@ export default function App() {
               onChange={(event) => setPassword(event.target.value)}
             />
 
-            <label>Confirm password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-            />
+            {createAccountMode && (
+              <>
+                <label>Confirm password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                />
+              </>
+            )}
 
             <button
               className="primaryButton"
@@ -1658,7 +1671,6 @@ export default function App() {
               disabled={
                 !email ||
                 !password ||
-                !confirmPassword ||
                 loadingAuth ||
                 creatingAccount
               }
