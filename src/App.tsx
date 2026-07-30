@@ -1652,8 +1652,9 @@ export default function App() {
             <div className="logo">♥</div>
             <h1 className="appTitle">Mood & Thought Tracker</h1>
             <p>
-              Sign in with email and password. Each person gets a private cloud
-              journal.
+              {createAccountMode
+                ? "Create your account with email and password."
+                : "Sign in with email and password. Each person gets a private cloud journal."}
             </p>
 
             {!supabase && (
@@ -1689,13 +1690,15 @@ export default function App() {
               </>
             )}
 
-            <button
-              className="primaryButton"
-              onClick={signIn}
-              disabled={!email || !password || loadingAuth || creatingAccount}
-            >
-              {loadingAuth ? "Signing in..." : "Sign In"}
-            </button>
+            {!createAccountMode && (
+              <button
+                className="primaryButton"
+                onClick={signIn}
+                disabled={!email || !password || loadingAuth || creatingAccount}
+              >
+                {loadingAuth ? "Signing in..." : "Sign In"}
+              </button>
+            )}
 
             <button
               className="secondaryButton"
@@ -1703,6 +1706,7 @@ export default function App() {
               disabled={
                 !email ||
                 !password ||
+                (createAccountMode && !confirmPassword) ||
                 loadingAuth ||
                 creatingAccount
               }
@@ -1710,13 +1714,27 @@ export default function App() {
               {creatingAccount ? "Creating account..." : "Create account"}
             </button>
 
-            <button
-              className="secondaryButton"
-              onClick={sendPasswordReset}
-              disabled={!email || loadingAuth || creatingAccount || sendingReset}
-            >
-              {sendingReset ? "Sending reset email..." : "Reset password"}
-            </button>
+            {createAccountMode ? (
+              <button
+                className="secondaryButton"
+                onClick={() => {
+                  setCreateAccountMode(false);
+                  setConfirmPassword("");
+                  setAuthMessage("");
+                }}
+                disabled={loadingAuth || creatingAccount}
+              >
+                Back to sign in
+              </button>
+            ) : (
+              <button
+                className="secondaryButton"
+                onClick={sendPasswordReset}
+                disabled={!email || loadingAuth || creatingAccount || sendingReset}
+              >
+                {sendingReset ? "Sending reset email..." : "Reset password"}
+              </button>
+            )}
 
             {authMessage && <p className="message">{authMessage}</p>}
           </section>
