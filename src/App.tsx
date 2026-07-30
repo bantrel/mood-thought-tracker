@@ -87,6 +87,20 @@ const emptyABCDForm = {
 };
 
 const OTHER_EMOTION_VALUE = "__other__";
+const themeOrder = ["default", "ocean", "forest", "dark"] as const;
+type ThemeName = (typeof themeOrder)[number];
+
+function nextTheme(current: ThemeName): ThemeName {
+  const index = themeOrder.indexOf(current);
+  return themeOrder[(index + 1) % themeOrder.length];
+}
+
+function themeLabel(theme: ThemeName) {
+  if (theme === "ocean") return "Ocean";
+  if (theme === "forest") return "Forest";
+  if (theme === "dark") return "Dark";
+  return "Default";
+}
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -265,6 +279,19 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "mood" | "abcd" | "counsellor" | "history"
   >("dashboard");
+  const [themeName, setThemeName] = useState<ThemeName>(() => {
+    if (typeof window === "undefined") return "default";
+    const saved = window.localStorage.getItem("mtt-theme");
+    if (
+      saved === "default" ||
+      saved === "ocean" ||
+      saved === "forest" ||
+      saved === "dark"
+    ) {
+      return saved;
+    }
+    return "default";
+  });
 
   function clearUndoWindow() {
     setUndoPayload(null);
@@ -316,6 +343,11 @@ export default function App() {
 
     return () => window.clearTimeout(timeout);
   }, [statusMessage]);
+
+  useEffect(() => {
+    document.body.setAttribute("data-theme", themeName);
+    window.localStorage.setItem("mtt-theme", themeName);
+  }, [themeName]);
 
   useEffect(() => {
     if (!undoExpiresAt) return;
@@ -1706,6 +1738,13 @@ export default function App() {
           <div className="topBarActions">
             <button
               className="secondaryButton"
+              onClick={() => setThemeName((current) => nextTheme(current))}
+            >
+              Theme: {themeLabel(themeName)}
+            </button>
+
+            <button
+              className="secondaryButton"
               onClick={() => setPrivacyMode((current) => !current)}
             >
               {privacyMode ? "Unlock Screen" : "Privacy Lock"}
@@ -2876,17 +2915,118 @@ function Styles() {
       * { box-sizing: border-box; }
 
       :root {
-        color-scheme: light;
+        color-scheme: light dark;
+        --page-glow-1: rgba(129, 140, 248, 0.18);
+        --page-glow-2: rgba(244, 114, 182, 0.16);
+        --page-grad-1: #f8fbff;
+        --page-grad-2: #f5f7ff;
+        --page-grad-3: #fdf2f8;
+        --blob-1: #818cf8;
+        --blob-2: #f472b6;
+        --title-1: #0f172a;
+        --title-2: #3730a3;
+        --title-3: #be185d;
+        --primary-1: #4f46e5;
+        --primary-2: #6366f1;
+        --primary-shadow: rgba(79, 70, 229, 0.2);
+        --tab-active-1: #ffffff;
+        --tab-active-2: #eef2ff;
+        --tab-active-text: #312e81;
+        --text-main: #0f172a;
+        --text-muted: #475569;
+        --label-color: #334155;
+        --input-bg: rgba(255, 255, 255, 0.92);
+        --input-border: #dbe4f0;
+        --surface-1: rgba(255, 255, 255, 0.9);
+        --surface-2: rgba(245, 247, 255, 0.92);
+        --surface-border: rgba(226, 232, 240, 0.9);
+        --tab-bg-1: rgba(226,232,240,0.7);
+        --tab-bg-2: rgba(241,245,249,0.95);
+        --secondary-bg-1: #f8fafc;
+        --secondary-bg-2: #eef2ff;
+        --secondary-text: #0f172a;
+        --secondary-border: #dbe4f0;
+      }
+
+      body[data-theme="ocean"] {
+        --page-glow-1: rgba(14, 116, 144, 0.2);
+        --page-glow-2: rgba(56, 189, 248, 0.18);
+        --page-grad-1: #f4fbff;
+        --page-grad-2: #ecfeff;
+        --page-grad-3: #eefaff;
+        --blob-1: #0ea5e9;
+        --blob-2: #22d3ee;
+        --title-1: #0f172a;
+        --title-2: #0e7490;
+        --title-3: #0369a1;
+        --primary-1: #0284c7;
+        --primary-2: #0ea5e9;
+        --primary-shadow: rgba(2, 132, 199, 0.25);
+        --tab-active-1: #f0f9ff;
+        --tab-active-2: #e0f2fe;
+        --tab-active-text: #0c4a6e;
+      }
+
+      body[data-theme="forest"] {
+        --page-glow-1: rgba(22, 163, 74, 0.2);
+        --page-glow-2: rgba(132, 204, 22, 0.18);
+        --page-grad-1: #f6fff8;
+        --page-grad-2: #f0fdf4;
+        --page-grad-3: #f7fee7;
+        --blob-1: #22c55e;
+        --blob-2: #84cc16;
+        --title-1: #14532d;
+        --title-2: #15803d;
+        --title-3: #3f6212;
+        --primary-1: #16a34a;
+        --primary-2: #22c55e;
+        --primary-shadow: rgba(22, 163, 74, 0.24);
+        --tab-active-1: #f7fee7;
+        --tab-active-2: #dcfce7;
+        --tab-active-text: #14532d;
+      }
+
+      body[data-theme="dark"] {
+        --page-glow-1: rgba(30, 41, 59, 0.7);
+        --page-glow-2: rgba(67, 56, 202, 0.35);
+        --page-grad-1: #0b1120;
+        --page-grad-2: #111827;
+        --page-grad-3: #1e1b4b;
+        --blob-1: #1d4ed8;
+        --blob-2: #7c3aed;
+        --title-1: #e2e8f0;
+        --title-2: #a5b4fc;
+        --title-3: #67e8f9;
+        --primary-1: #6366f1;
+        --primary-2: #8b5cf6;
+        --primary-shadow: rgba(99, 102, 241, 0.32);
+        --tab-active-1: #1e293b;
+        --tab-active-2: #334155;
+        --tab-active-text: #e2e8f0;
+        --text-main: #e2e8f0;
+        --text-muted: #cbd5e1;
+        --label-color: #cbd5e1;
+        --input-bg: rgba(15, 23, 42, 0.85);
+        --input-border: rgba(71, 85, 105, 0.9);
+        --surface-1: rgba(15, 23, 42, 0.84);
+        --surface-2: rgba(30, 41, 59, 0.8);
+        --surface-border: rgba(71, 85, 105, 0.9);
+        --tab-bg-1: rgba(30, 41, 59, 0.86);
+        --tab-bg-2: rgba(15, 23, 42, 0.9);
+        --secondary-bg-1: #1e293b;
+        --secondary-bg-2: #334155;
+        --secondary-text: #e2e8f0;
+        --secondary-border: rgba(100, 116, 139, 0.95);
       }
 
       body {
         margin: 0;
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         background:
-          radial-gradient(circle at top left, rgba(129, 140, 248, 0.18), transparent 24%),
-          radial-gradient(circle at bottom right, rgba(244, 114, 182, 0.16), transparent 26%),
-          linear-gradient(135deg, #f8fbff 0%, #f5f7ff 45%, #fdf2f8 100%);
-        color: #0f172a;
+          radial-gradient(circle at top left, var(--page-glow-1), transparent 24%),
+          radial-gradient(circle at bottom right, var(--page-glow-2), transparent 26%),
+          linear-gradient(135deg, var(--page-grad-1) 0%, var(--page-grad-2) 45%, var(--page-grad-3) 100%);
+        color: var(--text-main);
       }
 
       body::before,
@@ -2905,13 +3045,13 @@ function Styles() {
       body::before {
         top: -80px;
         left: -80px;
-        background: #818cf8;
+        background: var(--blob-1);
       }
 
       body::after {
         bottom: -80px;
         right: -80px;
-        background: #f472b6;
+        background: var(--blob-2);
       }
 
       button, input, textarea, select {
@@ -2930,16 +3070,16 @@ function Styles() {
         display: block;
         font-weight: 700;
         margin-bottom: 0.45rem;
-        color: #334155;
+        color: var(--label-color);
       }
 
       input, textarea, select {
         width: 100%;
-        border: 1px solid #dbe4f0;
+        border: 1px solid var(--input-border);
         border-radius: 16px;
         padding: 0.85rem 0.95rem;
-        background: rgba(255, 255, 255, 0.92);
-        color: #0f172a;
+        background: var(--input-bg);
+        color: var(--text-main);
         margin-bottom: 1rem;
         box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
       }
@@ -2973,7 +3113,7 @@ function Styles() {
         padding: 0.08em 0 0.14em;
         display: block;
         overflow: visible;
-        background: linear-gradient(120deg, #0f172a 0%, #3730a3 45%, #be185d 100%);
+        background: linear-gradient(120deg, var(--title-1) 0%, var(--title-2) 45%, var(--title-3) 100%);
         -webkit-background-clip: text;
         background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -2996,9 +3136,9 @@ function Styles() {
         max-width: 520px;
         display: grid;
         gap: 1rem;
-        background: rgba(255, 255, 255, 0.88);
+        background: color-mix(in srgb, var(--surface-1) 88%, transparent);
         backdrop-filter: blur(18px);
-        border: 1px solid rgba(255, 255, 255, 0.6);
+        border: 1px solid color-mix(in srgb, var(--surface-border) 70%, transparent);
         border-radius: 30px;
         padding: 2rem;
         box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
@@ -3012,7 +3152,7 @@ function Styles() {
 
       .loginCard p {
         margin-bottom: 0;
-        color: #475569;
+        color: var(--text-muted);
         line-height: 1.8;
       }
 
@@ -3045,7 +3185,7 @@ function Styles() {
 
       .message,
       .statusBox {
-        color: #475569;
+        color: var(--text-muted);
       }
 
       .statusBox {
@@ -3087,8 +3227,8 @@ function Styles() {
         margin: 1rem 0 1.25rem;
         padding: 1.25rem 1.4rem;
         border-radius: 28px;
-        background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(245,247,255,0.92) 100%);
-        border: 1px solid rgba(226, 232, 240, 0.9);
+        background: linear-gradient(135deg, var(--surface-1) 0%, var(--surface-2) 100%);
+        border: 1px solid var(--surface-border);
         box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
       }
 
@@ -3103,7 +3243,7 @@ function Styles() {
       }
 
       .topBar p {
-        color: #475569;
+        color: var(--text-muted);
         line-height: 1.45;
         font-size: 0.74rem;
         margin-bottom: 0;
@@ -3177,7 +3317,7 @@ function Styles() {
         display: flex;
         flex-wrap: nowrap;
         gap: 0.35rem;
-        background: linear-gradient(135deg, rgba(226,232,240,0.7) 0%, rgba(241,245,249,0.95) 100%);
+        background: linear-gradient(135deg, var(--tab-bg-1) 0%, var(--tab-bg-2) 100%);
         border-radius: 20px;
         padding: 0.35rem;
         margin-bottom: 1rem;
@@ -3204,14 +3344,14 @@ function Styles() {
         padding: 0.8rem 0.9rem;
         background: transparent;
         cursor: pointer;
-        color: #475569;
+        color: var(--text-muted);
         font-weight: 700;
         white-space: nowrap;
       }
 
       .tabs button.active {
-        background: linear-gradient(135deg, #ffffff 0%, #eef2ff 100%);
-        color: #312e81;
+        background: linear-gradient(135deg, var(--tab-active-1) 0%, var(--tab-active-2) 100%);
+        color: var(--tab-active-text);
         box-shadow: 0 8px 16px rgba(99, 102, 241, 0.16);
       }
 
@@ -3307,8 +3447,8 @@ function Styles() {
       }
 
       .card {
-        background: rgba(255, 255, 255, 0.9);
-        border: 1px solid rgba(226, 232, 240, 0.9);
+        background: var(--surface-1);
+        border: 1px solid var(--surface-border);
         border-radius: 24px;
         padding: 1.25rem;
         box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
@@ -3603,9 +3743,6 @@ function Styles() {
       .dangerButton {
         display: inline-flex;
         align-items: center;
-        justify-content: center;
-        line-height: 1.2;
-        white-space: nowrap;
         border: 0;
         border-radius: 14px;
         padding: 0.85rem 1rem;
@@ -3615,16 +3752,16 @@ function Styles() {
 
       .primaryButton {
         width: 100%;
-        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+        background: linear-gradient(135deg, var(--primary-1) 0%, var(--primary-2) 100%);
         color: white;
         margin-top: 1rem;
-        box-shadow: 0 12px 24px rgba(79, 70, 229, 0.2);
+        box-shadow: 0 12px 24px var(--primary-shadow);
       }
 
       .secondaryButton {
-        background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
-        color: #0f172a;
-        border: 1px solid #dbe4f0;
+        background: linear-gradient(135deg, var(--secondary-bg-1) 0%, var(--secondary-bg-2) 100%);
+        color: var(--secondary-text);
+        border: 1px solid var(--secondary-border);
       }
 
       .dangerButton {
@@ -4002,7 +4139,6 @@ function Styles() {
           grid-template-columns: 1fr;
         }
 
-        .cardHeaderRow,
         .activityRow {
           flex-direction: column;
           align-items: stretch;
