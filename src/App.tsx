@@ -1816,34 +1816,10 @@ export default function App() {
 
         {activeTab === "dashboard" && (
           <section className="dashboardStack">
-            <div className="card dashboardHero">
-              <h2>Today's Snapshot</h2>
-              <p>
-                A quick overview of how your day is tracking so far.
-              </p>
-
-              <div className="snapshotGrid">
-                <div className="snapshotPill">
-                  <span>Total Logs</span>
-                  <strong>{sortedRecords.length + abcdEntries.length}</strong>
-                </div>
-                <div className="snapshotPill">
-                  <span>Top Emotion</span>
-                  <strong>{topEmotion}</strong>
-                </div>
-                <div className="snapshotPill">
-                  <span>Avg Intensity</span>
-                  <strong>{averageIntensity.toFixed(1)}/10</strong>
-                </div>
-                <div className="snapshotPill">
-                  <span>ABCD Entries</span>
-                  <strong>{abcdEntries.length}</strong>
-                </div>
-              </div>
-            </div>
-
             <div className="dashboardGrid">
               <DayAtAGlance
+                title="Today's Snapshot"
+                subtitle="A quick overview of how your day is tracking so far."
                 loading={loadingRecords}
                 quickCheckIns={sortedRecords.length}
                 abcdReflections={abcdEntries.length}
@@ -2759,6 +2735,8 @@ export default function App() {
 }
 
 function DayAtAGlance({
+  title = "Day at a Glance",
+  subtitle,
   loading,
   quickCheckIns,
   abcdReflections,
@@ -2766,6 +2744,8 @@ function DayAtAGlance({
   topEmotion,
   highest,
 }: {
+  title?: string;
+  subtitle?: string;
   loading: boolean;
   quickCheckIns: number;
   abcdReflections: number;
@@ -2777,7 +2757,8 @@ function DayAtAGlance({
 
   return (
     <div className="card">
-      <h2>Day at a Glance</h2>
+      <h2>{title}</h2>
+      {subtitle ? <p>{subtitle}</p> : null}
 
       <div className="statsGrid">
         <div className="statBox">
@@ -3263,11 +3244,6 @@ function Styles() {
         gap: 1rem;
       }
 
-      .dashboardHero p {
-        color: #475569;
-        margin-bottom: 1rem;
-      }
-
       .trendCard {
         display: grid;
         gap: 0.65rem;
@@ -3297,32 +3273,6 @@ function Styles() {
         font-size: 0.9rem;
       }
 
-      .snapshotGrid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 0.75rem;
-      }
-
-      .snapshotPill {
-        border: 1px solid #dbe4f0;
-        background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
-        border-radius: 16px;
-        padding: 0.75rem 0.85rem;
-      }
-
-      .snapshotPill span {
-        display: block;
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: #64748b;
-        margin-bottom: 0.2rem;
-      }
-
-      .snapshotPill strong {
-        color: #111827;
-        font-size: 1.15rem;
-      }
 
       .counsellorSummaryGrid {
         display: grid;
@@ -4019,10 +3969,6 @@ function Styles() {
         .dashboardGrid,
         .gridTwo {
           grid-template-columns: 1fr;
-        }
-
-        .snapshotGrid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
         .dateRow {
