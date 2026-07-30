@@ -1900,7 +1900,7 @@ export default function App() {
         )}
 
         {activeTab === "mood" && (
-          <section className="gridTwo">
+          <section>
             <div className="card">
               <h2>Quick Check-In</h2>
 
@@ -2011,14 +2011,6 @@ export default function App() {
               </button>
             </div>
 
-            <DayAtAGlance
-              loading={loadingRecords}
-              quickCheckIns={sortedRecords.length}
-              abcdReflections={abcdEntries.length}
-              average={averageIntensity}
-              topEmotion={topEmotion}
-              highest={highestRecord}
-            />
           </section>
         )}
 
