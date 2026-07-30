@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import type { Session } from "@supabase/supabase-js";
 
@@ -279,6 +279,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "mood" | "abcd" | "counsellor" | "history"
   >("dashboard");
+  const [voiceFieldKey, setVoiceFieldKey] = useState<string | null>(null);
+  const voiceRecognitionRef = useRef<any>(null);
   const [themeName, setThemeName] = useState<ThemeName>(() => {
     if (typeof window === "undefined") return "default";
     const saved = window.localStorage.getItem("mtt-theme");
@@ -299,6 +301,114 @@ export default function App() {
     setUndoSecondsLeft(0);
   }
 
+  function appendVoiceText(currentValue: string, transcript: string) {
+    const trimmedCurrent = currentValue.trimEnd();
+    const trimmedTranscript = transcript.trim();
+
+    if (!trimmedTranscript) return currentValue;
+    if (!trimmedCurrent) return trimmedTranscript;
+
+    const joiner = /[.!?]$/.test(trimmedCurrent) ? " " : ". ";
+    return `${trimmedCurrent}${joiner}${trimmedTranscript}`;
+  }
+
+  function stopVoiceRecognition() {
+    if (voiceRecognitionRef.current) {
+      voiceRecognitionRef.current.stop();
+      voiceRecognitionRef.current = null;
+    }
+    setVoiceFieldKey(null);
+  }
+
+  function startVoiceInput(
+    fieldKey: string,
+    applyTranscript: (transcript: string) => void
+  ) {
+    const SpeechRecognitionCtor =
+      typeof window !== "undefined"
+        ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+        : null;
+
+    if (!SpeechRecognitionCtor) {
+      setStatusMessage("Voice input is not supported in this browser.");
+      return;
+    }
+
+    if (voiceFieldKey === fieldKey) {
+      stopVoiceRecognition();
+      return;
+    }
+
+    if (voiceRecognitionRef.current) {
+      voiceRecognitionRef.current.stop();
+      voiceRecognitionRef.current = null;
+    }
+
+    const recognition = new SpeechRecognitionCtor();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.continuous = false;
+
+    setVoiceFieldKey(fieldKey);
+    setStatusMessage("Listening... speak now.");
+
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results)
+        .map((result: any) => result?.[0]?.transcript || "")
+        .join(" ")
+        .trim();
+
+      if (transcript) {
+        applyTranscript(transcript);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      setStatusMessage(
+        `Voice input error: ${event?.error || "Unable to capture audio"}.`
+      );
+    };
+
+    recognition.onend = () => {
+      setVoiceFieldKey((current) => (current === fieldKey ? null : current));
+      voiceRecognitionRef.current = null;
+    };
+
+    voiceRecognitionRef.current = recognition;
+
+    try {
+      recognition.start();
+    } catch (_error) {
+      setVoiceFieldKey(null);
+      voiceRecognitionRef.current = null;
+      setStatusMessage("Voice input could not start. Check microphone permission.");
+    }
+  }
+
+  function renderVoiceButton(
+    fieldKey: string,
+    applyTranscript: (transcript: string) => void
+  ) {
+    const unsupported =
+      typeof window === "undefined" ||
+      !((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+
+    return (
+      <button
+        type="button"
+        className="secondaryButton voiceButton"
+        onClick={() => startVoiceInput(fieldKey, applyTranscript)}
+        disabled={
+          unsupported ||
+          (voiceFieldKey !== null && voiceFieldKey !== fieldKey)
+        }
+      >
+        {voiceFieldKey === fieldKey ? "Listening..." : "Voice input"}
+      </button>
+    );
+  }
+
   useEffect(() => {
     if (!supabase) return;
 
@@ -314,6 +424,15 @@ export default function App() {
 
     return () => {
       listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (voiceRecognitionRef.current) {
+        voiceRecognitionRef.current.stop();
+        voiceRecognitionRef.current = null;
+      }
     };
   }, []);
 
@@ -1933,7 +2052,18 @@ export default function App() {
 
               <div className="checkinGrid">
                 <section className="checkinGroup checkinOne">
-                  <h3>Activity / Behaviour</h3>
+                  <div className="fieldHeaderRow">
+                    <h3>Activity / Behaviour</h3>
+                    {renderVoiceButton("mood-activity", (transcript) =>
+                      setForm((current) => ({
+                        ...current,
+                        activity_behaviour: appendVoiceText(
+                          current.activity_behaviour,
+                          transcript
+                        ),
+                      }))
+                    )}
+                  </div>
                   <textarea
                     value={form.activity_behaviour}
                     placeholder="What are you doing? Where are you? Who are you with?"
@@ -1972,14 +2102,28 @@ export default function App() {
                       </select>
 
                       {!emotionOptions.includes(form.mood_emotion) && (
-                        <input
-                          type="text"
-                          value={form.mood_emotion}
-                          onChange={(event) =>
-                            setForm({ ...form, mood_emotion: event.target.value })
-                          }
-                          placeholder="Enter a custom emotion"
-                        />
+                        <>
+                          <div className="fieldHeaderRow">
+                            <label>Custom emotion</label>
+                            {renderVoiceButton("mood-custom-emotion", (transcript) =>
+                              setForm((current) => ({
+                                ...current,
+                                mood_emotion: appendVoiceText(
+                                  current.mood_emotion,
+                                  transcript
+                                ),
+                              }))
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            value={form.mood_emotion}
+                            onChange={(event) =>
+                              setForm({ ...form, mood_emotion: event.target.value })
+                            }
+                            placeholder="Enter a custom emotion"
+                          />
+                        </>
                       )}
                     </div>
 
@@ -2002,7 +2146,18 @@ export default function App() {
                 </section>
 
                 <section className="checkinGroup checkinThree">
-                  <h3>Automatic Thoughts</h3>
+                  <div className="fieldHeaderRow">
+                    <h3>Automatic Thoughts</h3>
+                    {renderVoiceButton("mood-thoughts", (transcript) =>
+                      setForm((current) => ({
+                        ...current,
+                        automatic_thoughts: appendVoiceText(
+                          current.automatic_thoughts,
+                          transcript
+                        ),
+                      }))
+                    )}
+                  </div>
                   <textarea
                     value={form.automatic_thoughts}
                     placeholder="What's on your mind? What are you thinking?"
@@ -2013,7 +2168,18 @@ export default function App() {
                 </section>
 
                 <section className="checkinGroup checkinFour">
-                  <h3>Physical Reaction</h3>
+                  <div className="fieldHeaderRow">
+                    <h3>Physical Reaction</h3>
+                    {renderVoiceButton("mood-physical", (transcript) =>
+                      setForm((current) => ({
+                        ...current,
+                        physical_reaction: appendVoiceText(
+                          current.physical_reaction,
+                          transcript
+                        ),
+                      }))
+                    )}
+                  </div>
                   <textarea
                     value={form.physical_reaction}
                     placeholder="How is your body feeling?"
@@ -2047,7 +2213,18 @@ export default function App() {
 
             <div className="abcdGrid">
               <section className="abcdGroup abcdA">
-                <h3>A - Activating Event / Situation</h3>
+                <div className="fieldHeaderRow">
+                  <h3>A - Activating Event / Situation</h3>
+                  {renderVoiceButton("abcd-activating-event", (transcript) =>
+                    setAbcdForm((current) => ({
+                      ...current,
+                      activating_event: appendVoiceText(
+                        current.activating_event,
+                        transcript
+                      ),
+                    }))
+                  )}
+                </div>
                 <textarea
                   value={abcdForm.activating_event}
                   placeholder="What happened? Who was involved? What triggered this?"
@@ -2061,7 +2238,15 @@ export default function App() {
               </section>
 
               <section className="abcdGroup abcdB">
-                <h3>B - Belief / Thought</h3>
+                <div className="fieldHeaderRow">
+                  <h3>B - Belief / Thought</h3>
+                  {renderVoiceButton("abcd-belief", (transcript) =>
+                    setAbcdForm((current) => ({
+                      ...current,
+                      belief: appendVoiceText(current.belief, transcript),
+                    }))
+                  )}
+                </div>
                 <textarea
                   value={abcdForm.belief}
                   placeholder="What did you tell yourself? What meaning did you attach to the situation?"
@@ -2099,14 +2284,25 @@ export default function App() {
                     </select>
 
                     {!emotionOptions.includes(abcdForm.emotion) && (
-                      <input
-                        type="text"
-                        value={abcdForm.emotion}
-                        onChange={(e) =>
-                          setAbcdForm({ ...abcdForm, emotion: e.target.value })
-                        }
-                        placeholder="Enter a custom emotion"
-                      />
+                      <>
+                        <div className="fieldHeaderRow">
+                          <label>Custom emotion</label>
+                          {renderVoiceButton("abcd-custom-emotion", (transcript) =>
+                            setAbcdForm((current) => ({
+                              ...current,
+                              emotion: appendVoiceText(current.emotion, transcript),
+                            }))
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          value={abcdForm.emotion}
+                          onChange={(e) =>
+                            setAbcdForm({ ...abcdForm, emotion: e.target.value })
+                          }
+                          placeholder="Enter a custom emotion"
+                        />
+                      </>
                     )}
                   </div>
 
@@ -2129,7 +2325,18 @@ export default function App() {
                   </div>
                 </div>
 
-                <label>Behavioural Consequence</label>
+                <div className="fieldHeaderRow">
+                  <label>Behavioural Consequence</label>
+                  {renderVoiceButton("abcd-behaviour", (transcript) =>
+                    setAbcdForm((current) => ({
+                      ...current,
+                      behavioural_consequence: appendVoiceText(
+                        current.behavioural_consequence,
+                        transcript
+                      ),
+                    }))
+                  )}
+                </div>
                 <textarea
                   value={abcdForm.behavioural_consequence}
                   placeholder="What did you do next?"
@@ -2141,7 +2348,18 @@ export default function App() {
                   }
                 />
 
-                <label>Physical Consequence</label>
+                <div className="fieldHeaderRow">
+                  <label>Physical Consequence</label>
+                  {renderVoiceButton("abcd-physical", (transcript) =>
+                    setAbcdForm((current) => ({
+                      ...current,
+                      physical_consequence: appendVoiceText(
+                        current.physical_consequence,
+                        transcript
+                      ),
+                    }))
+                  )}
+                </div>
                 <textarea
                   value={abcdForm.physical_consequence}
                   placeholder="How did your body react?"
@@ -2156,6 +2374,15 @@ export default function App() {
 
               <section className="abcdGroup abcdD">
                 <h3>D - Disputation</h3>
+                <div className="fieldHeaderRow">
+                  <label>Evidence For</label>
+                  {renderVoiceButton("abcd-evidence-for", (transcript) =>
+                    setAbcdForm((current) => ({
+                      ...current,
+                      evidence_for: appendVoiceText(current.evidence_for, transcript),
+                    }))
+                  )}
+                </div>
                 <textarea
                   value={abcdForm.evidence_for}
                   placeholder="What evidence supports this belief?"
@@ -2164,6 +2391,18 @@ export default function App() {
                   }
                 />
 
+                <div className="fieldHeaderRow">
+                  <label>Evidence Against</label>
+                  {renderVoiceButton("abcd-evidence-against", (transcript) =>
+                    setAbcdForm((current) => ({
+                      ...current,
+                      evidence_against: appendVoiceText(
+                        current.evidence_against,
+                        transcript
+                      ),
+                    }))
+                  )}
+                </div>
                 <textarea
                   value={abcdForm.evidence_against}
                   placeholder="What evidence does not support this belief?"
@@ -2172,6 +2411,18 @@ export default function App() {
                   }
                 />
 
+                <div className="fieldHeaderRow">
+                  <label>Balanced Perspective</label>
+                  {renderVoiceButton("abcd-balanced", (transcript) =>
+                    setAbcdForm((current) => ({
+                      ...current,
+                      balanced_perspective: appendVoiceText(
+                        current.balanced_perspective,
+                        transcript
+                      ),
+                    }))
+                  )}
+                </div>
                 <textarea
                   value={abcdForm.balanced_perspective}
                   placeholder="What is a more balanced perspective?"
@@ -2456,7 +2707,18 @@ export default function App() {
 
                                 {editingQuickId === record.id ? (
                                   <div className="entryEditForm">
-                                    <label>Mood Emotion</label>
+                                    <div className="fieldHeaderRow">
+                                      <label>Mood Emotion</label>
+                                      {renderVoiceButton("edit-quick-emotion", (transcript) =>
+                                        setEditMoodForm((current) => ({
+                                          ...current,
+                                          mood_emotion: appendVoiceText(
+                                            current.mood_emotion,
+                                            transcript
+                                          ),
+                                        }))
+                                      )}
+                                    </div>
                                     <input
                                       type="text"
                                       value={editMoodForm.mood_emotion}
@@ -2482,7 +2744,18 @@ export default function App() {
                                       }
                                     />
 
-                                    <label>Activity / Behaviour</label>
+                                    <div className="fieldHeaderRow">
+                                      <label>Activity / Behaviour</label>
+                                      {renderVoiceButton("edit-quick-activity", (transcript) =>
+                                        setEditMoodForm((current) => ({
+                                          ...current,
+                                          activity_behaviour: appendVoiceText(
+                                            current.activity_behaviour,
+                                            transcript
+                                          ),
+                                        }))
+                                      )}
+                                    </div>
                                     <textarea
                                       value={editMoodForm.activity_behaviour}
                                       onChange={(event) =>
@@ -2493,7 +2766,18 @@ export default function App() {
                                       }
                                     />
 
-                                    <label>Automatic Thoughts</label>
+                                    <div className="fieldHeaderRow">
+                                      <label>Automatic Thoughts</label>
+                                      {renderVoiceButton("edit-quick-thoughts", (transcript) =>
+                                        setEditMoodForm((current) => ({
+                                          ...current,
+                                          automatic_thoughts: appendVoiceText(
+                                            current.automatic_thoughts,
+                                            transcript
+                                          ),
+                                        }))
+                                      )}
+                                    </div>
                                     <textarea
                                       value={editMoodForm.automatic_thoughts}
                                       onChange={(event) =>
@@ -2504,7 +2788,18 @@ export default function App() {
                                       }
                                     />
 
-                                    <label>Physical Reaction</label>
+                                    <div className="fieldHeaderRow">
+                                      <label>Physical Reaction</label>
+                                      {renderVoiceButton("edit-quick-physical", (transcript) =>
+                                        setEditMoodForm((current) => ({
+                                          ...current,
+                                          physical_reaction: appendVoiceText(
+                                            current.physical_reaction,
+                                            transcript
+                                          ),
+                                        }))
+                                      )}
+                                    </div>
                                     <textarea
                                       value={editMoodForm.physical_reaction}
                                       onChange={(event) =>
@@ -2623,7 +2918,18 @@ export default function App() {
 
                                 {editingAbcdId === entry.id ? (
                                   <div className="entryEditForm">
-                                    <label>A - Activating Event</label>
+                                    <div className="fieldHeaderRow">
+                                      <label>A - Activating Event</label>
+                                      {renderVoiceButton("edit-abcd-a", (transcript) =>
+                                        setEditAbcdForm((current) => ({
+                                          ...current,
+                                          activating_event: appendVoiceText(
+                                            current.activating_event,
+                                            transcript
+                                          ),
+                                        }))
+                                      )}
+                                    </div>
                                     <textarea
                                       value={editAbcdForm.activating_event}
                                       onChange={(event) =>
@@ -2634,7 +2940,15 @@ export default function App() {
                                       }
                                     />
 
-                                    <label>B - Belief</label>
+                                    <div className="fieldHeaderRow">
+                                      <label>B - Belief</label>
+                                      {renderVoiceButton("edit-abcd-b", (transcript) =>
+                                        setEditAbcdForm((current) => ({
+                                          ...current,
+                                          belief: appendVoiceText(current.belief, transcript),
+                                        }))
+                                      )}
+                                    </div>
                                     <textarea
                                       value={editAbcdForm.belief}
                                       onChange={(event) =>
@@ -2645,7 +2959,15 @@ export default function App() {
                                       }
                                     />
 
-                                    <label>Emotion</label>
+                                    <div className="fieldHeaderRow">
+                                      <label>Emotion</label>
+                                      {renderVoiceButton("edit-abcd-emotion", (transcript) =>
+                                        setEditAbcdForm((current) => ({
+                                          ...current,
+                                          emotion: appendVoiceText(current.emotion, transcript),
+                                        }))
+                                      )}
+                                    </div>
                                     <input
                                       type="text"
                                       value={editAbcdForm.emotion}
@@ -2671,7 +2993,18 @@ export default function App() {
                                       }
                                     />
 
-                                    <label>Behavioural Consequence</label>
+                                    <div className="fieldHeaderRow">
+                                      <label>Behavioural Consequence</label>
+                                      {renderVoiceButton("edit-abcd-behaviour", (transcript) =>
+                                        setEditAbcdForm((current) => ({
+                                          ...current,
+                                          behavioural_consequence: appendVoiceText(
+                                            current.behavioural_consequence,
+                                            transcript
+                                          ),
+                                        }))
+                                      )}
+                                    </div>
                                     <textarea
                                       value={editAbcdForm.behavioural_consequence}
                                       onChange={(event) =>
@@ -2682,7 +3015,18 @@ export default function App() {
                                       }
                                     />
 
-                                    <label>Physical Consequence</label>
+                                    <div className="fieldHeaderRow">
+                                      <label>Physical Consequence</label>
+                                      {renderVoiceButton("edit-abcd-physical", (transcript) =>
+                                        setEditAbcdForm((current) => ({
+                                          ...current,
+                                          physical_consequence: appendVoiceText(
+                                            current.physical_consequence,
+                                            transcript
+                                          ),
+                                        }))
+                                      )}
+                                    </div>
                                     <textarea
                                       value={editAbcdForm.physical_consequence}
                                       onChange={(event) =>
@@ -2693,7 +3037,18 @@ export default function App() {
                                       }
                                     />
 
-                                    <label>Evidence For</label>
+                                    <div className="fieldHeaderRow">
+                                      <label>Evidence For</label>
+                                      {renderVoiceButton("edit-abcd-for", (transcript) =>
+                                        setEditAbcdForm((current) => ({
+                                          ...current,
+                                          evidence_for: appendVoiceText(
+                                            current.evidence_for,
+                                            transcript
+                                          ),
+                                        }))
+                                      )}
+                                    </div>
                                     <textarea
                                       value={editAbcdForm.evidence_for}
                                       onChange={(event) =>
@@ -2704,7 +3059,18 @@ export default function App() {
                                       }
                                     />
 
-                                    <label>Evidence Against</label>
+                                    <div className="fieldHeaderRow">
+                                      <label>Evidence Against</label>
+                                      {renderVoiceButton("edit-abcd-against", (transcript) =>
+                                        setEditAbcdForm((current) => ({
+                                          ...current,
+                                          evidence_against: appendVoiceText(
+                                            current.evidence_against,
+                                            transcript
+                                          ),
+                                        }))
+                                      )}
+                                    </div>
                                     <textarea
                                       value={editAbcdForm.evidence_against}
                                       onChange={(event) =>
@@ -2715,7 +3081,18 @@ export default function App() {
                                       }
                                     />
 
-                                    <label>Balanced Perspective</label>
+                                    <div className="fieldHeaderRow">
+                                      <label>Balanced Perspective</label>
+                                      {renderVoiceButton("edit-abcd-balanced", (transcript) =>
+                                        setEditAbcdForm((current) => ({
+                                          ...current,
+                                          balanced_perspective: appendVoiceText(
+                                            current.balanced_perspective,
+                                            transcript
+                                          ),
+                                        }))
+                                      )}
+                                    </div>
                                     <textarea
                                       value={editAbcdForm.balanced_perspective}
                                       onChange={(event) =>
@@ -3648,6 +4025,28 @@ function Styles() {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 1rem;
+      }
+
+      .fieldHeaderRow {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.6rem;
+        margin-bottom: 0.45rem;
+      }
+
+      .fieldHeaderRow h3,
+      .fieldHeaderRow label {
+        margin: 0;
+      }
+
+      .voiceButton {
+        width: auto;
+        margin: 0;
+        padding: 0.45rem 0.7rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        white-space: nowrap;
       }
 
       .checkinGrid {
